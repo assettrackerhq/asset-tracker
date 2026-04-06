@@ -17,6 +17,19 @@ spec:
         {{- include "asset-tracker.labels" . | nindent 8 }}
         app.kubernetes.io/component: backend
     spec:
+      initContainers:
+        - name: wait-for-db
+          image: busybox:1.37
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for database at {{ include "asset-tracker.postgresHost" . }}:{{ include "asset-tracker.postgresPort" . }}..."
+              until nc -z {{ include "asset-tracker.postgresHost" . }} {{ include "asset-tracker.postgresPort" . }}; do
+                echo "Database not ready, retrying in 2s..."
+                sleep 2
+              done
+              echo "Database is reachable."
       containers:
         - name: backend
           image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
