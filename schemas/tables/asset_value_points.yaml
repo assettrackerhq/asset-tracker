@@ -3,10 +3,6 @@ kind: Table
 metadata:
   name: asset_value_points
 spec:
-  database:
-    postgres:
-      uri:
-        value: will-be-overridden
   name: asset_value_points
   schema:
     postgres:
