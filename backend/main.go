@@ -8,6 +8,7 @@ import (
 
 	"github.com/assettrackerhq/asset-tracker/backend/internal/assets"
 	"github.com/assettrackerhq/asset-tracker/backend/internal/auth"
+	"github.com/assettrackerhq/asset-tracker/backend/internal/values"
 	"github.com/assettrackerhq/asset-tracker/backend/internal/config"
 	"github.com/assettrackerhq/asset-tracker/backend/internal/database"
 	"github.com/go-chi/chi/v5"
@@ -51,12 +52,19 @@ func main() {
 
 	// Asset routes (protected)
 	assetHandler := assets.NewHandler(pool)
+	valueHandler := values.NewHandler(pool)
 	r.Route("/api/assets", func(r chi.Router) {
 		r.Use(auth.Middleware(cfg.JWTSecret))
 		r.Get("/", assetHandler.List)
 		r.Post("/", assetHandler.Create)
 		r.Put("/{id}", assetHandler.Update)
 		r.Delete("/{id}", assetHandler.Delete)
+
+		// Value point routes
+		r.Get("/{assetID}/values", valueHandler.List)
+		r.Post("/{assetID}/values", valueHandler.Create)
+		r.Put("/{assetID}/values/{valueID}", valueHandler.Update)
+		r.Delete("/{assetID}/values/{valueID}", valueHandler.Delete)
 	})
 
 	addr := fmt.Sprintf(":%s", cfg.Port)
