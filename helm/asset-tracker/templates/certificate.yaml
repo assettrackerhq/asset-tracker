@@ -1,0 +1,17 @@
+{{- if and (index .Values "cert-manager" "enabled") .Values.certManager.selfSigned .Values.ingress.enabled .Values.ingress.host }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "asset-tracker.fullname" . }}-tls
+  labels:
+    {{- include "asset-tracker.labels" . | nindent 4 }}
+spec:
+  secretName: {{ include "asset-tracker.fullname" . }}-tls
+  issuerRef:
+    name: {{ include "asset-tracker.fullname" . }}-selfsigned
+    kind: ClusterIssuer
+  dnsNames:
+    - {{ .Values.ingress.host }}
+  duration: 8760h
+  renewBefore: 720h
+{{- end }}
