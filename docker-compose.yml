@@ -21,7 +21,7 @@ services:
       - apply
       - --driver=postgres
       - --uri=postgres://${POSTGRES_USER:-asset_tracker}:${POSTGRES_PASSWORD:-asset_tracker}@postgres:5432/${POSTGRES_DB:-asset_tracker}?sslmode=disable
-      - --ddi=/schemas/tables
+      - --ddl=/schemas/ddl/schema.sql
     volumes:
       - ./schemas:/schemas
     depends_on:
