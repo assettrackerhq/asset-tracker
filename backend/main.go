@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/assettrackerhq/asset-tracker/backend/internal/auth"
 	"github.com/assettrackerhq/asset-tracker/backend/internal/config"
 	"github.com/assettrackerhq/asset-tracker/backend/internal/database"
 	"github.com/go-chi/chi/v5"
@@ -41,6 +42,11 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte(`{"status":"ok"}`))
 	})
+
+	// Auth routes
+	authHandler := auth.NewHandler(pool, cfg.JWTSecret)
+	r.Post("/api/auth/register", authHandler.Register)
+	r.Post("/api/auth/login", authHandler.Login)
 
 	addr := fmt.Sprintf(":%s", cfg.Port)
 	log.Printf("starting server on %s", addr)
