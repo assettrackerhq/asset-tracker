@@ -2,5 +2,8 @@ dependencies:
 - name: postgresql
   repository: https://repo.helmforge.dev
   version: 1.9.4
-digest: sha256:5b6a5094392685e4415c062eb3c8ae27a686ac45b8a4bbe15179a302aadfdaeb
-generated: "2026-04-06T13:32:57.633206-07:00"
+- name: cert-manager
+  repository: https://charts.jetstack.io
+  version: v1.17.2
+digest: sha256:964e075428f8e3d2249d4c6e57ebc75a65a53af5a028a8a38569e348031b3a7c
+generated: "2026-04-06T14:07:37.507905-07:00"

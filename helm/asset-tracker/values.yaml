@@ -39,3 +39,11 @@ ingress:
   className: ""
   host: ""
   tls: []
+
+cert-manager:
+  enabled: false
+  installCRDs: true
+
+certManager:
+  staging: true
+  email: ""
