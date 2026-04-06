@@ -24,7 +24,7 @@ spec:
           command:
             - sh
             - -c
-            - until nc -z {{ include "asset-tracker.postgresHost" . }} 5432; do echo "waiting for postgres"; sleep 2; done
+            - until nc -z {{ include "asset-tracker.postgresHost" . }} {{ include "asset-tracker.postgresPort" . }}; do echo "waiting for postgres"; sleep 2; done
       containers:
         - name: schemahero
           image: "{{ .Values.schemahero.image.repository }}:{{ .Values.schemahero.image.tag }}"

@@ -9,3 +9,4 @@ dependencies:
   - name: postgresql
     version: "1.9.4"
     repository: "https://repo.helmforge.dev"
+    condition: postgresql.enabled
