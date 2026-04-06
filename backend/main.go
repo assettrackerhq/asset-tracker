@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/assettrackerhq/asset-tracker/backend/internal/assets"
 	"github.com/assettrackerhq/asset-tracker/backend/internal/auth"
 	"github.com/assettrackerhq/asset-tracker/backend/internal/config"
 	"github.com/assettrackerhq/asset-tracker/backend/internal/database"
@@ -47,6 +48,16 @@ func main() {
 	authHandler := auth.NewHandler(pool, cfg.JWTSecret)
 	r.Post("/api/auth/register", authHandler.Register)
 	r.Post("/api/auth/login", authHandler.Login)
+
+	// Asset routes (protected)
+	assetHandler := assets.NewHandler(pool)
+	r.Route("/api/assets", func(r chi.Router) {
+		r.Use(auth.Middleware(cfg.JWTSecret))
+		r.Get("/", assetHandler.List)
+		r.Post("/", assetHandler.Create)
+		r.Put("/{id}", assetHandler.Update)
+		r.Delete("/{id}", assetHandler.Delete)
+	})
 
 	addr := fmt.Sprintf(":%s", cfg.Port)
 	log.Printf("starting server on %s", addr)
