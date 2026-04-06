@@ -15,8 +15,22 @@ Fullname helper
 {{- end }}
 
 {{/*
+PostgreSQL host
+*/}}
+{{- define "asset-tracker.postgresHost" -}}
+{{ .Release.Name }}-postgresql
+{{- end }}
+
+{{/*
+PostgreSQL auth secret name
+*/}}
+{{- define "asset-tracker.postgresSecretName" -}}
+{{ .Release.Name }}-postgresql-auth
+{{- end }}
+
+{{/*
 PostgreSQL connection URI
 */}}
 {{- define "asset-tracker.databaseURL" -}}
-postgres://{{ .Values.postgres.user }}:{{ .Values.postgres.password }}@{{ include "asset-tracker.fullname" . }}-postgres:5432/{{ .Values.postgres.database }}?sslmode=disable
+postgres://{{ .Values.postgresql.auth.username }}:{{ .Values.postgresql.auth.password }}@{{ include "asset-tracker.postgresHost" . }}:5432/{{ .Values.postgresql.auth.database }}?sslmode=disable
 {{- end }}
