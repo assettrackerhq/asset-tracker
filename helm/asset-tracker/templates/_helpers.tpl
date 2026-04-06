@@ -22,13 +22,6 @@ PostgreSQL host
 {{- end }}
 
 {{/*
-PostgreSQL auth secret name
-*/}}
-{{- define "asset-tracker.postgresSecretName" -}}
-{{ .Release.Name }}-postgresql-auth
-{{- end }}
-
-{{/*
 PostgreSQL connection URI
 */}}
 {{- define "asset-tracker.databaseURL" -}}
