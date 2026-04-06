@@ -4,3 +4,9 @@ description: A personal asset tracker web application
 type: application
 version: 0.1.0
 appVersion: "1.0.0"
+
+dependencies:
+  - name: postgresql
+    version: "1.9.4"
+    repository: "https://repo.helmforge.dev"
+    condition: postgresql.enabled

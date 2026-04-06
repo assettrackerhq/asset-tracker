@@ -20,11 +20,11 @@ spec:
       restartPolicy: OnFailure
       initContainers:
         - name: wait-for-postgres
-          image: "{{ .Values.postgres.image.repository }}:{{ .Values.postgres.image.tag }}"
+          image: "busybox:1.37"
           command:
             - sh
             - -c
-            - until pg_isready -h {{ include "asset-tracker.fullname" . }}-postgres -U {{ .Values.postgres.user }}; do sleep 2; done
+            - until nc -z {{ include "asset-tracker.postgresHost" . }} {{ include "asset-tracker.postgresPort" . }}; do echo "waiting for postgres"; sleep 2; done
       containers:
         - name: schemahero
           image: "{{ .Values.schemahero.image.repository }}:{{ .Values.schemahero.image.tag }}"

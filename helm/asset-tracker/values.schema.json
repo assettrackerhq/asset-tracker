@@ -1,26 +1,34 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
-  "required": ["postgres", "backend", "frontend"],
+  "required": ["postgresql", "backend", "frontend"],
   "properties": {
-    "postgres": {
+    "postgresql": {
       "type": "object",
-      "required": ["image", "user", "password", "database"],
       "properties": {
-        "image": {
+        "architecture": { "type": "string", "enum": ["standalone", "replication"] },
+        "auth": {
           "type": "object",
-          "required": ["repository", "tag"],
+          "required": ["database", "username", "password", "postgresPassword"],
           "properties": {
-            "repository": { "type": "string" },
-            "tag": { "type": "string" }
-          },
-          "additionalProperties": false
-        },
-        "user": { "type": "string", "minLength": 1 },
-        "password": { "type": "string", "minLength": 1 },
-        "database": { "type": "string", "minLength": 1 }
-      },
-      "additionalProperties": false
+            "database": { "type": "string", "minLength": 1 },
+            "username": { "type": "string", "minLength": 1 },
+            "password": { "type": "string", "minLength": 1 },
+            "postgresPassword": { "type": "string", "minLength": 1 },
+            "existingSecret": { "type": "string" }
+          }
+        }
+      }
+    },
+    "externalDatabase": {
+      "type": "object",
+      "properties": {
+        "host": { "type": "string" },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "username": { "type": "string" },
+        "password": { "type": "string" },
+        "database": { "type": "string" }
+      }
     },
     "schemahero": {
       "type": "object",
@@ -97,6 +105,5 @@
       },
       "additionalProperties": false
     }
-  },
-  "additionalProperties": false
+  }
 }

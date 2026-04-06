@@ -15,8 +15,34 @@ Fullname helper
 {{- end }}
 
 {{/*
+PostgreSQL host
+*/}}
+{{- define "asset-tracker.postgresHost" -}}
+{{- if .Values.postgresql.enabled -}}
+{{ .Release.Name }}-postgresql
+{{- else -}}
+{{ .Values.externalDatabase.host }}
+{{- end -}}
+{{- end }}
+
+{{/*
+PostgreSQL port
+*/}}
+{{- define "asset-tracker.postgresPort" -}}
+{{- if .Values.postgresql.enabled -}}
+5432
+{{- else -}}
+{{ .Values.externalDatabase.port }}
+{{- end -}}
+{{- end }}
+
+{{/*
 PostgreSQL connection URI
 */}}
 {{- define "asset-tracker.databaseURL" -}}
-postgres://{{ .Values.postgres.user }}:{{ .Values.postgres.password }}@{{ include "asset-tracker.fullname" . }}-postgres:5432/{{ .Values.postgres.database }}?sslmode=disable
+{{- if .Values.postgresql.enabled -}}
+postgres://{{ .Values.postgresql.auth.username }}:{{ .Values.postgresql.auth.password }}@{{ include "asset-tracker.postgresHost" . }}:{{ include "asset-tracker.postgresPort" . }}/{{ .Values.postgresql.auth.database }}?sslmode=disable
+{{- else -}}
+postgres://{{ .Values.externalDatabase.username }}:{{ .Values.externalDatabase.password }}@{{ include "asset-tracker.postgresHost" . }}:{{ include "asset-tracker.postgresPort" . }}/{{ .Values.externalDatabase.database }}?sslmode=disable
+{{- end -}}
 {{- end }}
