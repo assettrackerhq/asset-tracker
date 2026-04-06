@@ -5,11 +5,20 @@ metadata:
   name: {{ include "asset-tracker.fullname" . }}
   labels:
     {{- include "asset-tracker.labels" . | nindent 4 }}
+  {{- if and (index .Values "cert-manager" "enabled") .Values.certManager.email }}
+  annotations:
+    cert-manager.io/cluster-issuer: {{ include "asset-tracker.fullname" . }}-letsencrypt
+  {{- end }}
 spec:
   {{- if .Values.ingress.className }}
   ingressClassName: {{ .Values.ingress.className }}
   {{- end }}
-  {{- if .Values.ingress.tls }}
+  {{- if and (index .Values "cert-manager" "enabled") .Values.certManager.email .Values.ingress.host }}
+  tls:
+    - secretName: {{ include "asset-tracker.fullname" . }}-tls
+      hosts:
+        - {{ .Values.ingress.host }}
+  {{- else if .Values.ingress.tls }}
   tls:
     {{- range .Values.ingress.tls }}
     - secretName: {{ .secretName }}

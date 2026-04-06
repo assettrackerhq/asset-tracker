@@ -1,0 +1,26 @@
+{{- if index .Values "cert-manager" "enabled" }}
+{{- if .Values.certManager.email }}
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: {{ include "asset-tracker.fullname" . }}-letsencrypt
+  labels:
+    {{- include "asset-tracker.labels" . | nindent 4 }}
+spec:
+  acme:
+    {{- if .Values.certManager.staging }}
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    {{- else }}
+    server: https://acme-v02.api.letsencrypt.org/directory
+    {{- end }}
+    email: {{ .Values.certManager.email }}
+    privateKeySecretRef:
+      name: {{ include "asset-tracker.fullname" . }}-letsencrypt-key
+    solvers:
+      - http01:
+          ingress:
+            {{- if .Values.ingress.className }}
+            ingressClassName: {{ .Values.ingress.className }}
+            {{- end }}
+{{- end }}
+{{- end }}
