@@ -1,0 +1,33 @@
+postgres:
+  image:
+    repository: postgres
+    tag: "16"
+  user: asset_tracker
+  password: asset_tracker
+  database: asset_tracker
+
+schemahero:
+  image:
+    repository: schemahero/schemahero
+    tag: latest
+
+backend:
+  image:
+    repository: asset-tracker-backend
+    tag: latest
+  port: 8080
+  replicas: 1
+  jwtSecret: change-me-in-production
+
+frontend:
+  image:
+    repository: asset-tracker-frontend
+    tag: latest
+  port: 5173
+  replicas: 1
+
+ingress:
+  enabled: false
+  className: ""
+  host: ""
+  tls: []

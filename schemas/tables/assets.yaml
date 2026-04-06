@@ -3,10 +3,6 @@ kind: Table
 metadata:
   name: assets
 spec:
-  database:
-    postgres:
-      uri:
-        value: will-be-overridden
   name: assets
   schema:
     postgres:
