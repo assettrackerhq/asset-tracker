@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/assettrackerhq/asset-tracker/backend/internal/assets"
 	"github.com/assettrackerhq/asset-tracker/backend/internal/auth"
@@ -41,8 +43,23 @@ func main() {
 	}))
 
 	r.Get("/api/health", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{"status":"ok"}`))
+		dbStatus := "connected"
+		status := "ok"
+		httpStatus := http.StatusOK
+
+		if err := pool.Ping(r.Context()); err != nil {
+			dbStatus = "disconnected"
+			status = "degraded"
+			httpStatus = http.StatusServiceUnavailable
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(httpStatus)
+		json.NewEncoder(w).Encode(map[string]string{
+			"status":    status,
+			"database":  dbStatus,
+			"timestamp": time.Now().UTC().Format(time.RFC3339),
+		})
 	})
 
 	// Auth routes

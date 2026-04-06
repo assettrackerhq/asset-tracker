@@ -32,6 +32,8 @@ spec:
                   key: jwt-secret
             - name: PORT
               value: {{ .Values.backend.port | quote }}
+          resources:
+            {{- toYaml .Values.backend.resources | nindent 12 }}
           readinessProbe:
             httpGet:
               path: /api/health

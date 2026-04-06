@@ -18,6 +18,13 @@ schemahero:
   image:
     repository: schemahero/schemahero
     tag: latest
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
 
 backend:
   image:
@@ -26,6 +33,13 @@ backend:
   port: 8080
   replicas: 1
   jwtSecret: change-me-in-production
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
 
 frontend:
   image:
@@ -33,6 +47,13 @@ frontend:
     tag: latest
   port: 5173
   replicas: 1
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
 
 ingress:
   enabled: false
