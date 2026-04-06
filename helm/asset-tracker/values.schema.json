@@ -108,6 +108,12 @@
       },
       "additionalProperties": false
     },
+    "ingress-nginx": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" }
+      }
+    },
     "cert-manager": {
       "type": "object",
       "properties": {
@@ -119,7 +125,8 @@
       "type": "object",
       "properties": {
         "staging": { "type": "boolean" },
-        "email": { "type": "string", "format": "email" }
+        "email": { "type": "string", "format": "email" },
+        "selfSigned": { "type": "boolean" }
       },
       "additionalProperties": false
     }
