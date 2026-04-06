@@ -1,10 +1,10 @@
-postgres:
-  image:
-    repository: postgres
-    tag: "16"
-  user: asset_tracker
-  password: asset_tracker
-  database: asset_tracker
+postgresql:
+  architecture: standalone
+  auth:
+    database: asset_tracker
+    username: asset_tracker
+    password: asset_tracker
+    postgresPassword: asset_tracker
 
 schemahero:
   image:
