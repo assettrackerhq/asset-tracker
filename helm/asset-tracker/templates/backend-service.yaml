@@ -12,3 +12,18 @@ spec:
   ports:
     - port: {{ .Values.backend.port }}
       targetPort: {{ .Values.backend.port }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  labels:
+    {{- include "asset-tracker.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend-alias
+spec:
+  selector:
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - port: {{ .Values.backend.port }}
+      targetPort: {{ .Values.backend.port }}
