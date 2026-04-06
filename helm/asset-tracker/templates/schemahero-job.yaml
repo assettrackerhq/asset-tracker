@@ -25,9 +25,17 @@ spec:
             - sh
             - -c
             - until nc -z {{ include "asset-tracker.postgresHost" . }} {{ include "asset-tracker.postgresPort" . }}; do echo "waiting for postgres"; sleep 2; done
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              memory: 32Mi
       containers:
         - name: schemahero
           image: "{{ .Values.schemahero.image.repository }}:{{ .Values.schemahero.image.tag }}"
+          resources:
+            {{- toYaml .Values.schemahero.resources | nindent 12 }}
           command:
             - /schemahero
             - apply
