@@ -64,7 +64,7 @@ ingress:
 ingress-nginx:
   enabled: false
 
-sdk:
+replicated:
   enabled: true
   nameOverride: asset-tracker-sdk
 

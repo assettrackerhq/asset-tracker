@@ -108,11 +108,11 @@
       },
       "additionalProperties": false
     },
-    "sdk": {
-      "type": "object",
-      "properties": {
-        "enabled": { "type": "boolean" }
-      }
+    "global": {
+      "type": "object"
+    },
+    "replicated": {
+      "type": "object"
     },
     "ingress-nginx": {
       "type": "object",
