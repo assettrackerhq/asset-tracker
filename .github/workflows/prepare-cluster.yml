@@ -102,9 +102,6 @@ jobs:
               className: nginx
             ingress-nginx:
               enabled: true
-              global:
-                image:
-                  registry: proxy.assettracker.tech/proxy/assettracker/registry.k8s.io
               controller:
                 service:
                   type: NodePort

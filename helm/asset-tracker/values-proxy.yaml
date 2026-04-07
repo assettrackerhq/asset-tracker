@@ -16,20 +16,6 @@ postgresql:
     repository: proxy.assettracker.tech/proxy/assettracker/docker.io/library/postgres
     tag: "18.3-trixie"
 
-cert-manager:
-  image:
-    repository: proxy.assettracker.tech/proxy/assettracker/quay.io/jetstack/cert-manager-controller
-  webhook:
-    image:
-      repository: proxy.assettracker.tech/proxy/assettracker/quay.io/jetstack/cert-manager-webhook
-  cainjector:
-    image:
-      repository: proxy.assettracker.tech/proxy/assettracker/quay.io/jetstack/cert-manager-cainjector
-  startupapicheck:
-    image:
-      repository: proxy.assettracker.tech/proxy/assettracker/quay.io/jetstack/cert-manager-startupapicheck
-
-ingress-nginx:
-  global:
-    image:
-      registry: proxy.assettracker.tech/proxy/assettracker/registry.k8s.io
+# Note: ingress-nginx and cert-manager are NOT proxied because their
+# pre-install hooks run before the Replicated SDK creates the pull secret.
+# These images are public (registry.k8s.io, quay.io) and don't need proxying.
