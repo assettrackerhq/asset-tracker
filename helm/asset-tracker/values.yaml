@@ -52,8 +52,8 @@ frontend:
       cpu: 25m
       memory: 32Mi
     limits:
-      cpu: 100m
-      memory: 128Mi
+      cpu: 200m
+      memory: 256Mi
 
 ingress:
   enabled: false

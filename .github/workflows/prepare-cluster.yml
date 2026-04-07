@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       cluster-id: ${{ steps.prepare-cluster.outputs.cluster-id }}
-      hostname: ${{ steps.hostname.outputs.hostname }}
+      hostname: ${{ steps.expose-port.outputs.hostname }}
     steps:
       - uses: actions/checkout@v4
 
@@ -55,41 +55,11 @@ jobs:
       - name: Expose port
         id: expose-port
         uses: replicatedhq/replicated-actions/expose-port@v1.20.0
-        continue-on-error: true
         with:
           api-token: ${{ secrets.REPLICATED_API_TOKEN }}
           cluster-id: ${{ steps.prepare-cluster.outputs.cluster-id }}
           port: 30080
           protocols: https
-
-      - name: Wait for exposed port
-        if: steps.expose-port.outputs.hostname == ''
-        id: wait-for-port
-        run: |
-          curl -s https://api.github.com/repos/replicatedhq/replicated/releases/latest \
-            | grep "browser_download_url.*linux_amd64.tar.gz" \
-            | cut -d '"' -f 4 \
-            | xargs curl -sL \
-            | tar xz -C /usr/local/bin replicated
-          for i in $(seq 1 30); do
-            hostname=$(replicated cluster port ls ${{ steps.prepare-cluster.outputs.cluster-id }} --output json \
-              | jq -r '[.[] | select(.upstream_port == 30080 and .state == "ready")] | first | .hostname // empty')
-            if [ -n "$hostname" ]; then
-              echo "hostname=$hostname" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-            sleep 10
-          done
-          echo "::error::Timed out waiting for exposed port"
-          exit 1
-        env:
-          REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
-
-      - name: Set hostname output
-        id: hostname
-        run: |
-          hostname="${{ steps.expose-port.outputs.hostname || steps.wait-for-port.outputs.hostname }}"
-          echo "hostname=$hostname" >> "$GITHUB_OUTPUT"
 
       - name: Upload chart artifact
         uses: actions/upload-artifact@v4
