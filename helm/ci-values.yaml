@@ -1,0 +1,10 @@
+ingress:
+  enabled: true
+
+ingress-nginx:
+  enabled: true
+  controller:
+    service:
+      type: NodePort
+      nodePorts:
+        http: 30080
