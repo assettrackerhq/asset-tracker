@@ -15,12 +15,14 @@ jobs:
         uses: azure/setup-helm@v4
 
       - name: Package Helm chart
+        id: package
         run: |
           helm repo add helmforge https://repo.helmforge.dev
           helm repo add jetstack https://charts.jetstack.io
           helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
           helm dependency build helm/asset-tracker
           helm package helm/asset-tracker --destination helm/
+          echo "chart=$(ls helm/asset-tracker-*.tgz)" >> "$GITHUB_OUTPUT"
 
       - name: Prepare cluster
         id: prepare-cluster
@@ -28,7 +30,7 @@ jobs:
         with:
           app-slug: ${{ secrets.REPLICATED_APP_SLUG }}
           api-token: ${{ secrets.REPLICATED_API_TOKEN }}
-          chart: helm/asset-tracker
+          chart: ${{ steps.package.outputs.chart }}
           kubernetes-distribution: k3s
           ttl: 1h
           namespace: default
