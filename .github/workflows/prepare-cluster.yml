@@ -37,6 +37,7 @@ jobs:
           helm-values: |
             ingress:
               enabled: true
+              className: nginx
             ingress-nginx:
               enabled: true
               controller:
