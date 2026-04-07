@@ -69,7 +69,7 @@ test.describe.serial('Asset Tracker', () => {
     });
 
     test('redirect to login when not authenticated', async ({ page }) => {
-      await page.goto('/assets');
+      await page.goto('/assets', { waitUntil: 'commit' });
       await expect(page).toHaveURL(/\/login/);
     });
   });
