@@ -1,0 +1,34 @@
+name: Prepare Cluster
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+
+jobs:
+  prepare-cluster:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Package Helm chart
+        run: |
+          helm dependency build helm/asset-tracker
+          helm package helm/asset-tracker --destination helm/
+
+      - name: Prepare cluster
+        id: prepare-cluster
+        uses: replicatedhq/replicated-actions/prepare-cluster@v1.20.0
+        with:
+          app-slug: ${{ secrets.REPLICATED_APP_SLUG }}
+          api-token: ${{ secrets.REPLICATED_API_TOKEN }}
+          chart: helm/asset-tracker
+          kubernetes-distribution: k3s
+          ttl: 1h
+          namespace: default
+          export-kubeconfig: "true"
+          helm-run-preflights: "false"
+          helm-chart-name: asset-tracker
