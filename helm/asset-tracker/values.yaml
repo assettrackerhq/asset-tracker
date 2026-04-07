@@ -28,7 +28,7 @@ schemahero:
 
 backend:
   image:
-    repository: asset-tracker-backend
+    repository: unawake2068/asset-tracker-backend
     tag: latest
   port: 8080
   replicas: 1
@@ -43,7 +43,7 @@ backend:
 
 frontend:
   image:
-    repository: asset-tracker-frontend
+    repository: unawake2068/asset-tracker-frontend
     tag: latest
   port: 5173
   replicas: 1
