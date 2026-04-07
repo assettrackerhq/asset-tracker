@@ -16,6 +16,9 @@ jobs:
 
       - name: Package Helm chart
         run: |
+          helm repo add helmforge https://repo.helmforge.dev
+          helm repo add jetstack https://charts.jetstack.io
+          helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
           helm dependency build helm/asset-tracker
           helm package helm/asset-tracker --destination helm/
 
