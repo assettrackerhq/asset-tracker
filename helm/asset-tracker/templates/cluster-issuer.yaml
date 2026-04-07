@@ -1,43 +1,93 @@
 {{- if index .Values "cert-manager" "enabled" }}
-{{- if .Values.certManager.selfSigned }}
----
-apiVersion: cert-manager.io/v1
-kind: ClusterIssuer
+apiVersion: batch/v1
+kind: Job
 metadata:
-  name: {{ include "asset-tracker.fullname" . }}-selfsigned
+  name: {{ include "asset-tracker.fullname" . }}-cluster-issuer
   labels:
     {{- include "asset-tracker.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cluster-issuer
   annotations:
     "helm.sh/hook": post-install,post-upgrade
     "helm.sh/hook-weight": "1"
+    "helm.sh/hook-delete-policy": before-hook-creation
 spec:
-  selfSigned: {}
-{{- else if .Values.certManager.email }}
----
-apiVersion: cert-manager.io/v1
-kind: ClusterIssuer
-metadata:
-  name: {{ include "asset-tracker.fullname" . }}-letsencrypt
-  labels:
-    {{- include "asset-tracker.labels" . | nindent 4 }}
-  annotations:
-    "helm.sh/hook": post-install,post-upgrade
-    "helm.sh/hook-weight": "1"
-spec:
-  acme:
-    {{- if .Values.certManager.staging }}
-    server: https://acme-staging-v02.api.letsencrypt.org/directory
-    {{- else }}
-    server: https://acme-v02.api.letsencrypt.org/directory
-    {{- end }}
-    email: {{ .Values.certManager.email }}
-    privateKeySecretRef:
-      name: {{ include "asset-tracker.fullname" . }}-letsencrypt-key
-    solvers:
-      - http01:
-          ingress:
-            {{- if .Values.ingress.className }}
-            ingressClassName: {{ .Values.ingress.className }}
-            {{- end }}
-{{- end }}
+  backoffLimit: 10
+  template:
+    metadata:
+      labels:
+        {{- include "asset-tracker.labels" . | nindent 8 }}
+        app.kubernetes.io/component: cluster-issuer
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: {{ include "asset-tracker.fullname" . }}-cluster-issuer
+      initContainers:
+        - name: wait-for-webhook
+          image: "alpine/k8s:1.31.4"
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for cert-manager webhook to be ready..."
+              until kubectl get endpoints {{ .Release.Name }}-cert-manager-webhook -o jsonpath='{.subsets[0].addresses[0].ip}' 2>/dev/null | grep -q .; do
+                echo "Webhook not ready, retrying in 5s..."
+                sleep 5
+              done
+              echo "Cert-manager webhook endpoint is ready, waiting for TLS to stabilize..."
+              sleep 10
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              memory: 32Mi
+      containers:
+        - name: create-issuer
+          image: "alpine/k8s:1.31.4"
+          command:
+            - sh
+            - -c
+            - |
+              {{- if .Values.certManager.selfSigned }}
+              cat <<'YAML' | kubectl apply -f -
+              apiVersion: cert-manager.io/v1
+              kind: ClusterIssuer
+              metadata:
+                name: {{ include "asset-tracker.fullname" . }}-selfsigned
+                labels:
+                  {{- include "asset-tracker.labels" . | nindent 18 }}
+              spec:
+                selfSigned: {}
+              YAML
+              {{- else if .Values.certManager.email }}
+              cat <<'YAML' | kubectl apply -f -
+              apiVersion: cert-manager.io/v1
+              kind: ClusterIssuer
+              metadata:
+                name: {{ include "asset-tracker.fullname" . }}-letsencrypt
+                labels:
+                  {{- include "asset-tracker.labels" . | nindent 18 }}
+              spec:
+                acme:
+                  {{- if .Values.certManager.staging }}
+                  server: https://acme-staging-v02.api.letsencrypt.org/directory
+                  {{- else }}
+                  server: https://acme-v02.api.letsencrypt.org/directory
+                  {{- end }}
+                  email: {{ .Values.certManager.email }}
+                  privateKeySecretRef:
+                    name: {{ include "asset-tracker.fullname" . }}-letsencrypt-key
+                  solvers:
+                    - http01:
+                        ingress:
+                          {{- if .Values.ingress.className }}
+                          ingressClassName: {{ .Values.ingress.className }}
+                          {{- end }}
+              YAML
+              {{- end }}
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              memory: 32Mi
 {{- end }}
