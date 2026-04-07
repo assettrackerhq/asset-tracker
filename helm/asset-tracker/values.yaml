@@ -64,6 +64,10 @@ ingress:
 ingress-nginx:
   enabled: false
 
+sdk:
+  enabled: true
+  nameOverride: asset-tracker-sdk
+
 cert-manager:
   enabled: false
   installCRDs: true
