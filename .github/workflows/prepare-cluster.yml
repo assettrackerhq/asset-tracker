@@ -34,7 +34,16 @@ jobs:
           app-slug: ${{ secrets.REPLICATED_APP_SLUG }}
           api-token: ${{ secrets.REPLICATED_API_TOKEN }}
           chart: ${{ steps.package.outputs.chart }}
-          helm-values: helm/ci-values.yaml
+          helm-values: |
+            ingress:
+              enabled: true
+            ingress-nginx:
+              enabled: true
+              controller:
+                service:
+                  type: NodePort
+                  nodePorts:
+                    http: 30080
           kubernetes-distribution: k3s
           ttl: 1h
           namespace: default
