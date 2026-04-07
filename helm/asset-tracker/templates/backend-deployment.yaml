@@ -17,9 +17,10 @@ spec:
         {{- include "asset-tracker.labels" . | nindent 8 }}
         app.kubernetes.io/component: backend
     spec:
+      {{- include "asset-tracker.imagePullSecrets" . | nindent 6 }}
       initContainers:
         - name: wait-for-db
-          image: busybox:1.37
+          image: {{ include "asset-tracker.proxyImage" (dict "root" . "image" "docker.io/library/busybox:1.37") }}
           command:
             - sh
             - -c
@@ -32,7 +33,7 @@ spec:
               echo "Database is reachable."
       containers:
         - name: backend
-          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+          image: {{ include "asset-tracker.proxyImage" (dict "root" . "image" (printf "docker.io/%s:%s" .Values.backend.image.repository .Values.backend.image.tag)) }}
           ports:
             - containerPort: {{ .Values.backend.port }}
           env:

@@ -1,0 +1,35 @@
+# Overlay values for proxying all images through the Replicated proxy registry.
+# Usage: helm install ... -f values.yaml -f values-proxy.yaml
+#
+# This file overrides subchart image values to route through the proxy.
+# The main chart's own images (backend, frontend, schemahero, init containers)
+# are handled automatically via global.proxy in values.yaml.
+
+global:
+  proxy:
+    enabled: true
+    domain: proxy.assettracker.tech
+    appSlug: assettracker
+
+postgresql:
+  image:
+    repository: proxy.assettracker.tech/proxy/assettracker/docker.io/library/postgres
+    tag: "18.3-trixie"
+
+cert-manager:
+  image:
+    repository: proxy.assettracker.tech/proxy/assettracker/quay.io/jetstack/cert-manager-controller
+  webhook:
+    image:
+      repository: proxy.assettracker.tech/proxy/assettracker/quay.io/jetstack/cert-manager-webhook
+  cainjector:
+    image:
+      repository: proxy.assettracker.tech/proxy/assettracker/quay.io/jetstack/cert-manager-cainjector
+  startupapicheck:
+    image:
+      repository: proxy.assettracker.tech/proxy/assettracker/quay.io/jetstack/cert-manager-startupapicheck
+
+ingress-nginx:
+  global:
+    image:
+      registry: proxy.assettracker.tech/proxy/assettracker/registry.k8s.io

@@ -17,9 +17,10 @@ spec:
         {{- include "asset-tracker.labels" . | nindent 8 }}
         app.kubernetes.io/component: frontend
     spec:
+      {{- include "asset-tracker.imagePullSecrets" . | nindent 6 }}
       containers:
         - name: frontend
-          image: "{{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag }}"
+          image: {{ include "asset-tracker.proxyImage" (dict "root" . "image" (printf "docker.io/%s:%s" .Values.frontend.image.repository .Values.frontend.image.tag)) }}
           ports:
             - containerPort: {{ .Values.frontend.port }}
           resources:

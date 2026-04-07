@@ -35,16 +35,28 @@ jobs:
           api-token: ${{ secrets.REPLICATED_API_TOKEN }}
           chart: ${{ steps.package.outputs.chart }}
           helm-values: |
+            global:
+              proxy:
+                enabled: true
+                domain: proxy.assettracker.tech
+                appSlug: assettracker
             ingress:
               enabled: true
               className: nginx
             ingress-nginx:
               enabled: true
+              global:
+                image:
+                  registry: proxy.assettracker.tech/proxy/assettracker/registry.k8s.io
               controller:
                 service:
                   type: NodePort
                   nodePorts:
                     http: 30080
+            postgresql:
+              image:
+                repository: proxy.assettracker.tech/proxy/assettracker/docker.io/library/postgres
+                tag: "18.3-trixie"
           kubernetes-distribution: k3s
           ttl: 1h
           namespace: default

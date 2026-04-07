@@ -20,9 +20,10 @@ spec:
     spec:
       restartPolicy: OnFailure
       serviceAccountName: {{ include "asset-tracker.fullname" . }}-cluster-issuer
+      {{- include "asset-tracker.imagePullSecrets" . | nindent 6 }}
       initContainers:
         - name: wait-for-webhook
-          image: "alpine/k8s:1.31.4"
+          image: {{ include "asset-tracker.proxyImage" (dict "root" . "image" "docker.io/alpine/k8s:1.31.4") }}
           command:
             - sh
             - -c
@@ -42,7 +43,7 @@ spec:
               memory: 32Mi
       containers:
         - name: create-issuer
-          image: "alpine/k8s:1.31.4"
+          image: {{ include "asset-tracker.proxyImage" (dict "root" . "image" "docker.io/alpine/k8s:1.31.4") }}
           command:
             - sh
             - -c
