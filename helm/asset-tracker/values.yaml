@@ -1,3 +1,9 @@
+global:
+  proxy:
+    enabled: false
+    domain: proxy.assettracker.tech
+    appSlug: assettracker
+
 postgresql:
   enabled: true
   architecture: standalone

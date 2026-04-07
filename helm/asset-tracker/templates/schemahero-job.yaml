@@ -18,9 +18,10 @@ spec:
         app.kubernetes.io/component: schemahero
     spec:
       restartPolicy: OnFailure
+      {{- include "asset-tracker.imagePullSecrets" . | nindent 6 }}
       initContainers:
         - name: wait-for-postgres
-          image: "busybox:1.37"
+          image: {{ include "asset-tracker.proxyImage" (dict "root" . "image" "docker.io/library/busybox:1.37") }}
           command:
             - sh
             - -c
@@ -33,7 +34,7 @@ spec:
               memory: 32Mi
       containers:
         - name: schemahero
-          image: "{{ .Values.schemahero.image.repository }}:{{ .Values.schemahero.image.tag }}"
+          image: {{ include "asset-tracker.proxyImage" (dict "root" . "image" (printf "docker.io/%s:%s" .Values.schemahero.image.repository .Values.schemahero.image.tag)) }}
           resources:
             {{- toYaml .Values.schemahero.resources | nindent 12 }}
           command:

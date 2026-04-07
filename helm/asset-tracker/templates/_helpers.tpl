@@ -37,6 +37,32 @@ PostgreSQL port
 {{- end }}
 
 {{/*
+Proxy image helper - rewrites image refs through the Replicated proxy registry
+Usage: {{ include "asset-tracker.proxyImage" (dict "root" . "image" "docker.io/library/busybox:1.37") }}
+*/}}
+{{- define "asset-tracker.proxyImage" -}}
+{{- $global := .root.Values.global | default dict -}}
+{{- $proxy := $global.proxy | default dict -}}
+{{- if and (index $proxy "enabled") (index $proxy "domain") (index $proxy "appSlug") -}}
+{{ $proxy.domain }}/proxy/{{ $proxy.appSlug }}/{{ .image }}
+{{- else -}}
+{{ .image }}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Image pull secrets - adds enterprise-pull-secret when proxy is enabled
+*/}}
+{{- define "asset-tracker.imagePullSecrets" -}}
+{{- $global := .Values.global | default dict -}}
+{{- $proxy := $global.proxy | default dict -}}
+{{- if index $proxy "enabled" }}
+imagePullSecrets:
+  - name: enterprise-pull-secret
+{{- end -}}
+{{- end -}}
+
+{{/*
 PostgreSQL connection URI
 */}}
 {{- define "asset-tracker.databaseURL" -}}
