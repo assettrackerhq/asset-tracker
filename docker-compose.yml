@@ -29,6 +29,7 @@ services:
         condition: service_healthy
 
   backend:
+    image: unawake2068/asset-tracker-backend:latest
     build: ./backend
     ports:
       - "8080:8080"
@@ -40,6 +41,7 @@ services:
         condition: service_completed_successfully
 
   frontend:
+    image: unawake2068/asset-tracker-frontend:latest
     build: ./frontend
     ports:
       - "5173:5173"
