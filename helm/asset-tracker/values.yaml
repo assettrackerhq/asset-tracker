@@ -73,6 +73,7 @@ ingress-nginx:
 replicated:
   enabled: true
   nameOverride: asset-tracker-sdk
+  createPullSecret: false
 
 cert-manager:
   enabled: false
