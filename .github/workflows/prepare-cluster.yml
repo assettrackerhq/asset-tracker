@@ -122,5 +122,5 @@ jobs:
           app-slug: ${{ secrets.REPLICATED_APP_SLUG }}
           api-token: ${{ secrets.REPLICATED_API_TOKEN }}
           chart: ${{ steps.meta.outputs.chart }}
-          promote-channel: unstable
+          promote-channel: Unstable
           version: ${{ steps.meta.outputs.version }}
