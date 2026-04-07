@@ -101,6 +101,10 @@ jobs:
     needs: [prepare-cluster, e2e-tests]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Download chart artifact
         uses: actions/download-artifact@v4
         with:
@@ -109,12 +113,13 @@ jobs:
       - name: Determine version and chart
         id: meta
         run: |
-          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            echo "version=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
-          else
-            echo "version=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
-          fi
-          echo "chart=$(ls asset-tracker-*.tgz)" >> "$GITHUB_OUTPUT"
+          chart=$(ls asset-tracker-*.tgz)
+          echo "chart=$chart" >> "$GITHUB_OUTPUT"
+
+          # Use latest semver tag as base, fallback to 0.0.1
+          base=$(git describe --tags --abbrev=0 --match 'v*' 2>/dev/null | sed 's/^v//' || echo "0.0.1")
+          # Append short SHA as pre-release suffix for a unique semver
+          echo "version=${base}-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
       - name: Create release
         uses: replicatedhq/replicated-actions/create-release@v1.20.0
