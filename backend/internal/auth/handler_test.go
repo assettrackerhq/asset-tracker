@@ -4,14 +4,26 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/assettrackerhq/asset-tracker/backend/internal/auth"
+	"github.com/assettrackerhq/asset-tracker/backend/internal/license"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+func mockSDKServer(t *testing.T, userLimit int) *license.Client {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprintf(w, `{"name":"user_limit","title":"User Limit","type":"Integer","value":%d}`, userLimit)
+	}))
+	t.Cleanup(srv.Close)
+	return license.NewClient(srv.URL)
+}
 
 func setupTestDB(t *testing.T) *pgxpool.Pool {
 	t.Helper()
@@ -30,7 +42,8 @@ func TestRegisterAndLogin(t *testing.T) {
 	defer pool.Close()
 
 	jwtSecret := "test-secret"
-	handler := auth.NewHandler(pool, jwtSecret)
+	lc := mockSDKServer(t, 100)
+	handler := auth.NewHandler(pool, jwtSecret, lc)
 
 	r := chi.NewRouter()
 	r.Post("/api/auth/register", handler.Register)
@@ -98,7 +111,8 @@ func TestRegisterValidation(t *testing.T) {
 	pool := setupTestDB(t)
 	defer pool.Close()
 
-	handler := auth.NewHandler(pool, "test-secret")
+	lc := mockSDKServer(t, 100)
+	handler := auth.NewHandler(pool, "test-secret", lc)
 
 	r := chi.NewRouter()
 	r.Post("/api/auth/register", handler.Register)

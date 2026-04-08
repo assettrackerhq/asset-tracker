@@ -46,6 +46,10 @@ export function register(username, password) {
   });
 }
 
+export function getUserLimit() {
+  return request('/auth/user-limit');
+}
+
 export function listAssets() {
   return request('/assets');
 }

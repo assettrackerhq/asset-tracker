@@ -14,6 +14,7 @@ import (
 	"github.com/assettrackerhq/asset-tracker/backend/internal/auth"
 	"github.com/assettrackerhq/asset-tracker/backend/internal/config"
 	"github.com/assettrackerhq/asset-tracker/backend/internal/database"
+	"github.com/assettrackerhq/asset-tracker/backend/internal/license"
 	"github.com/assettrackerhq/asset-tracker/backend/internal/metrics"
 	"github.com/assettrackerhq/asset-tracker/backend/internal/values"
 	"github.com/go-chi/chi/v5"
@@ -73,10 +74,14 @@ func main() {
 		})
 	})
 
+	// License client for entitlement checks
+	licenseClient := license.NewClient(cfg.ReplicatedSDKEndpoint)
+
 	// Auth routes
-	authHandler := auth.NewHandler(pool, cfg.JWTSecret)
+	authHandler := auth.NewHandler(pool, cfg.JWTSecret, licenseClient)
 	r.Post("/api/auth/register", authHandler.Register)
 	r.Post("/api/auth/login", authHandler.Login)
+	r.Get("/api/auth/user-limit", authHandler.UserLimitInfo)
 
 	// Asset routes (protected)
 	assetHandler := assets.NewHandler(pool)
