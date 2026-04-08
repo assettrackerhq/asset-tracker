@@ -12,7 +12,22 @@ import (
 
 // helpers
 
-func strPtr(s string) *string { return &s }
+func makeLicenseInfo(expiresAt *string) LicenseInfoResponse {
+	info := LicenseInfoResponse{
+		LicenseID:   "test-id",
+		LicenseType: "prod",
+	}
+	if expiresAt != nil {
+		info.Entitlements = map[string]entitlement{
+			"expires_at": {
+				Title:     "Expiration",
+				Value:     *expiresAt,
+				ValueType: "String",
+			},
+		}
+	}
+	return info
+}
 
 func makeFakeSDKServer(t *testing.T, resp LicenseInfoResponse) *httptest.Server {
 	t.Helper()
@@ -37,8 +52,8 @@ func makeErrorSDKServer() *httptest.Server {
 // --- evaluateLicense tests ---
 
 func TestEvaluateLicense_NilExpiration(t *testing.T) {
-	info := &LicenseInfoResponse{ExpirationTime: nil}
-	valid, msg := evaluateLicense(info, time.Now())
+	info := makeLicenseInfo(nil)
+	valid, msg := evaluateLicense(&info, time.Now())
 	if !valid {
 		t.Errorf("expected valid, got invalid: %s", msg)
 	}
@@ -48,8 +63,9 @@ func TestEvaluateLicense_NilExpiration(t *testing.T) {
 }
 
 func TestEvaluateLicense_EmptyExpiration(t *testing.T) {
-	info := &LicenseInfoResponse{ExpirationTime: strPtr("")}
-	valid, msg := evaluateLicense(info, time.Now())
+	empty := ""
+	info := makeLicenseInfo(&empty)
+	valid, msg := evaluateLicense(&info, time.Now())
 	if !valid {
 		t.Errorf("expected valid, got invalid: %s", msg)
 	}
@@ -60,8 +76,8 @@ func TestEvaluateLicense_EmptyExpiration(t *testing.T) {
 
 func TestEvaluateLicense_FutureExpiration(t *testing.T) {
 	future := time.Now().Add(24 * time.Hour).UTC().Format(time.RFC3339)
-	info := &LicenseInfoResponse{ExpirationTime: &future}
-	valid, msg := evaluateLicense(info, time.Now())
+	info := makeLicenseInfo(&future)
+	valid, msg := evaluateLicense(&info, time.Now())
 	if !valid {
 		t.Errorf("expected valid, got invalid: %s", msg)
 	}
@@ -72,8 +88,8 @@ func TestEvaluateLicense_FutureExpiration(t *testing.T) {
 
 func TestEvaluateLicense_PastExpiration(t *testing.T) {
 	past := "2020-06-15T00:00:00Z"
-	info := &LicenseInfoResponse{ExpirationTime: &past}
-	valid, msg := evaluateLicense(info, time.Now())
+	info := makeLicenseInfo(&past)
+	valid, msg := evaluateLicense(&info, time.Now())
 	if valid {
 		t.Error("expected invalid, got valid")
 	}
@@ -84,8 +100,8 @@ func TestEvaluateLicense_PastExpiration(t *testing.T) {
 
 func TestEvaluateLicense_InvalidDateFormat(t *testing.T) {
 	bad := "not-a-date"
-	info := &LicenseInfoResponse{ExpirationTime: &bad}
-	valid, msg := evaluateLicense(info, time.Now())
+	info := makeLicenseInfo(&bad)
+	valid, msg := evaluateLicense(&info, time.Now())
 	if valid {
 		t.Error("expected invalid for bad date format, got valid")
 	}
@@ -104,11 +120,7 @@ func newCheckerWithServer(t *testing.T, srv *httptest.Server) *Checker {
 
 func TestChecker_ValidLicense(t *testing.T) {
 	future := time.Now().Add(24 * time.Hour).UTC().Format(time.RFC3339)
-	srv := makeFakeSDKServer(t, LicenseInfoResponse{
-		LicenseID:      "test-id",
-		LicenseType:    "prod",
-		ExpirationTime: &future,
-	})
+	srv := makeFakeSDKServer(t, makeLicenseInfo(&future))
 	defer srv.Close()
 
 	checker := newCheckerWithServer(t, srv)
@@ -126,11 +138,7 @@ func TestChecker_ValidLicense(t *testing.T) {
 
 func TestChecker_ExpiredLicense(t *testing.T) {
 	past := "2020-01-01T00:00:00Z"
-	srv := makeFakeSDKServer(t, LicenseInfoResponse{
-		LicenseID:      "test-id",
-		LicenseType:    "prod",
-		ExpirationTime: &past,
-	})
+	srv := makeFakeSDKServer(t, makeLicenseInfo(&past))
 	defer srv.Close()
 
 	checker := newCheckerWithServer(t, srv)
@@ -147,7 +155,6 @@ func TestChecker_ExpiredLicense(t *testing.T) {
 }
 
 func TestChecker_SDKUnreachable_NeverSucceeded(t *testing.T) {
-	// Server that returns 500 → client returns error
 	srv := makeErrorSDKServer()
 	defer srv.Close()
 
@@ -165,29 +172,21 @@ func TestChecker_SDKUnreachable_NeverSucceeded(t *testing.T) {
 }
 
 func TestChecker_SDKUnreachable_WithinGracePeriod(t *testing.T) {
-	// First: establish a successful check
 	future := time.Now().Add(48 * time.Hour).UTC().Format(time.RFC3339)
-	srv := makeFakeSDKServer(t, LicenseInfoResponse{
-		LicenseID:      "test-id",
-		LicenseType:    "prod",
-		ExpirationTime: &future,
-	})
+	srv := makeFakeSDKServer(t, makeLicenseInfo(&future))
 
 	fixedNow := time.Now()
 	checker := newCheckerWithServer(t, srv)
 	checker.now = func() time.Time { return fixedNow }
 	checker.check(context.Background())
 
-	// Verify initial state is valid
 	status := checker.CurrentStatus()
 	if !status.Valid {
 		t.Fatalf("setup: expected valid status after first check, got: %s", status.Message)
 	}
 
-	// Now close the server to simulate SDK unreachable
 	srv.Close()
 
-	// Advance time within grace period (e.g. 5 minutes)
 	withinGrace := fixedNow.Add(5 * time.Minute)
 	checker.now = func() time.Time { return withinGrace }
 	checker.check(context.Background())
@@ -199,29 +198,21 @@ func TestChecker_SDKUnreachable_WithinGracePeriod(t *testing.T) {
 }
 
 func TestChecker_SDKUnreachable_BeyondGracePeriod(t *testing.T) {
-	// First: establish a successful check
 	future := time.Now().Add(48 * time.Hour).UTC().Format(time.RFC3339)
-	srv := makeFakeSDKServer(t, LicenseInfoResponse{
-		LicenseID:      "test-id",
-		LicenseType:    "prod",
-		ExpirationTime: &future,
-	})
+	srv := makeFakeSDKServer(t, makeLicenseInfo(&future))
 
 	fixedNow := time.Now()
 	checker := newCheckerWithServer(t, srv)
 	checker.now = func() time.Time { return fixedNow }
 	checker.check(context.Background())
 
-	// Verify initial state is valid
 	status := checker.CurrentStatus()
 	if !status.Valid {
 		t.Fatalf("setup: expected valid status after first check, got: %s", status.Message)
 	}
 
-	// Now close the server to simulate SDK unreachable
 	srv.Close()
 
-	// Advance time beyond grace period (e.g. 20 minutes)
 	beyondGrace := fixedNow.Add(20 * time.Minute)
 	checker.now = func() time.Time { return beyondGrace }
 	checker.check(context.Background())
