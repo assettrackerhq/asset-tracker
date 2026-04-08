@@ -78,20 +78,39 @@ func main() {
 	// License client for entitlement checks
 	licenseClient := license.NewClient(cfg.ReplicatedSDKEndpoint)
 
-	// Auth routes
+	// Start license validity checker
+	licenseChecker := license.NewChecker(licenseClient)
+	go licenseChecker.Run(ctx)
+
+	// Auth routes (protected by license check)
 	authHandler := auth.NewHandler(pool, cfg.JWTSecret, licenseClient)
-	r.Post("/api/auth/register", authHandler.Register)
-	r.Post("/api/auth/login", authHandler.Login)
-	r.Get("/api/auth/user-limit", authHandler.UserLimitInfo)
+	r.Group(func(r chi.Router) {
+		r.Use(license.LicenseMiddleware(licenseChecker))
+		r.Post("/api/auth/register", authHandler.Register)
+		r.Post("/api/auth/login", authHandler.Login)
+		r.Get("/api/auth/user-limit", authHandler.UserLimitInfo)
+	})
 
 	// Update check route
 	updateHandler := updates.NewHandler(cfg.ReplicatedSDKEndpoint)
 	r.Get("/api/app/updates", updateHandler.Check)
 
-	// Asset routes (protected)
+	// License status route (public, exempt from license middleware)
+	r.Get("/api/license/status", func(w http.ResponseWriter, r *http.Request) {
+		status := licenseChecker.CurrentStatus()
+		w.Header().Set("Content-Type", "application/json")
+		resp := map[string]any{"valid": status.Valid}
+		if !status.Valid {
+			resp["message"] = status.Message
+		}
+		json.NewEncoder(w).Encode(resp)
+	})
+
+	// Asset routes (protected by license check + auth)
 	assetHandler := assets.NewHandler(pool)
 	valueHandler := values.NewHandler(pool)
 	r.Route("/api/assets", func(r chi.Router) {
+		r.Use(license.LicenseMiddleware(licenseChecker))
 		r.Use(auth.Middleware(cfg.JWTSecret))
 		r.Get("/", assetHandler.List)
 		r.Post("/", assetHandler.Create)
