@@ -85,10 +85,11 @@ func (c *Checker) check(ctx context.Context) {
 }
 
 func evaluateLicense(info *LicenseInfoResponse, now time.Time) (bool, string) {
-	if info.ExpirationTime == nil || *info.ExpirationTime == "" {
+	expirationTime := info.ExpirationTime()
+	if expirationTime == nil {
 		return true, ""
 	}
-	expiry, err := time.Parse(time.RFC3339, *info.ExpirationTime)
+	expiry, err := time.Parse(time.RFC3339, *expirationTime)
 	if err != nil {
 		return false, "License has an invalid expiration date"
 	}

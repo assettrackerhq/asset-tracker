@@ -25,11 +25,33 @@ type licenseFieldResponse struct {
 	Value any    `json:"value"`
 }
 
+// entitlement represents a single entitlement field from the SDK license info response.
+type entitlement struct {
+	Title     string `json:"title"`
+	Value     any    `json:"value"`
+	ValueType string `json:"valueType"`
+}
+
 // LicenseInfoResponse represents the response from the SDK license info endpoint.
 type LicenseInfoResponse struct {
-	LicenseID      string  `json:"license_id"`
-	LicenseType    string  `json:"license_type"`
-	ExpirationTime *string `json:"expiration_time"`
+	LicenseID    string                `json:"licenseID"`
+	LicenseType  string                `json:"licenseType"`
+	Entitlements map[string]entitlement `json:"entitlements"`
+}
+
+// ExpirationTime returns the expires_at entitlement value, or nil if not set.
+func (r *LicenseInfoResponse) ExpirationTime() *string {
+	if r.Entitlements == nil {
+		return nil
+	}
+	ea, ok := r.Entitlements["expires_at"]
+	if !ok {
+		return nil
+	}
+	if s, ok := ea.Value.(string); ok && s != "" {
+		return &s
+	}
+	return nil
 }
 
 // LicenseInfo queries the SDK for the full license info.
