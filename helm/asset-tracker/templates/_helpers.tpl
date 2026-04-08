@@ -51,15 +51,38 @@ Usage: {{ include "asset-tracker.proxyImage" (dict "root" . "image" "docker.io/l
 {{- end -}}
 
 {{/*
-Image pull secrets - adds enterprise-pull-secret when proxy is enabled
+Image pull secrets - includes enterprise-pull-secret when dockerconfigjson is
+injected by Replicated, plus any customer-provided pull secrets.
 */}}
 {{- define "asset-tracker.imagePullSecrets" -}}
-{{- $global := .Values.global | default dict -}}
-{{- $proxy := $global.proxy | default dict -}}
-{{- if index $proxy "enabled" }}
+  {{- $pullSecrets := list }}
+  {{- with ((.Values.global).imagePullSecrets) -}}
+    {{- range . -}}
+      {{- if kindIs "map" . -}}
+        {{- $pullSecrets = append $pullSecrets .name -}}
+      {{- else -}}
+        {{- $pullSecrets = append $pullSecrets . -}}
+      {{- end }}
+    {{- end -}}
+  {{- end -}}
+  {{- with .Values.images -}}
+    {{- range .pullSecrets -}}
+      {{- if kindIs "map" . -}}
+        {{- $pullSecrets = append $pullSecrets .name -}}
+      {{- else -}}
+        {{- $pullSecrets = append $pullSecrets . -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+  {{- if hasKey (default dict ((.Values.global).replicated)) "dockerconfigjson" }}
+    {{- $pullSecrets = append $pullSecrets "enterprise-pull-secret" -}}
+  {{- end -}}
+  {{- if (not (empty $pullSecrets)) }}
 imagePullSecrets:
-  - name: enterprise-pull-secret
-{{- end -}}
+    {{- range $pullSecrets | uniq }}
+  - name: {{ . }}
+    {{- end }}
+  {{- end }}
 {{- end -}}
 
 {{/*
