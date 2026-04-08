@@ -46,6 +46,10 @@ spec:
                   key: jwt-secret
             - name: PORT
               value: {{ .Values.backend.port | quote }}
+            - name: REPLICATED_SDK_ENDPOINT
+              value: {{ .Values.backend.metrics.sdkEndpoint | quote }}
+            - name: METRICS_INTERVAL
+              value: {{ .Values.backend.metrics.interval | quote }}
           resources:
             {{- toYaml .Values.backend.resources | nindent 12 }}
           readinessProbe:
