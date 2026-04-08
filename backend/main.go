@@ -6,16 +6,20 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/assettrackerhq/asset-tracker/backend/internal/assets"
 	"github.com/assettrackerhq/asset-tracker/backend/internal/auth"
-	"github.com/assettrackerhq/asset-tracker/backend/internal/values"
 	"github.com/assettrackerhq/asset-tracker/backend/internal/config"
 	"github.com/assettrackerhq/asset-tracker/backend/internal/database"
+	"github.com/assettrackerhq/asset-tracker/backend/internal/metrics"
+	"github.com/assettrackerhq/asset-tracker/backend/internal/values"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func main() {
@@ -24,12 +28,19 @@ func main() {
 		log.Fatalf("failed to load config: %v", err)
 	}
 
-	ctx := context.Background()
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+
 	pool, err := database.Connect(ctx, cfg.DatabaseURL)
 	if err != nil {
 		log.Fatalf("failed to connect to database: %v", err)
 	}
 	defer pool.Close()
+
+	// Start metrics reporter
+	sdkEndpoint := cfg.ReplicatedSDKEndpoint + "/api/v1/app/custom-metrics"
+	reporter := metrics.New(&poolAdapter{pool}, sdkEndpoint, cfg.MetricsInterval)
+	go reporter.Run(ctx)
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
@@ -85,8 +96,27 @@ func main() {
 	})
 
 	addr := fmt.Sprintf(":%s", cfg.Port)
-	log.Printf("starting server on %s", addr)
-	if err := http.ListenAndServe(addr, r); err != nil {
-		log.Fatalf("server failed: %v", err)
-	}
+	srv := &http.Server{Addr: addr, Handler: r}
+
+	go func() {
+		log.Printf("starting server on %s", addr)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("server failed: %v", err)
+		}
+	}()
+
+	<-ctx.Done()
+	log.Println("shutting down...")
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer shutdownCancel()
+	srv.Shutdown(shutdownCtx)
+}
+
+// poolAdapter adapts pgxpool.Pool to the metrics.UserCounter interface.
+type poolAdapter struct {
+	pool *pgxpool.Pool
+}
+
+func (a *poolAdapter) QueryRow(ctx context.Context, sql string, args ...any) metrics.Row {
+	return a.pool.QueryRow(ctx, sql, args...)
 }
