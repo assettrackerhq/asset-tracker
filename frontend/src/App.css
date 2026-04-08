@@ -128,3 +128,9 @@ a {
   z-index: 1000;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
+
+.license-expired-text {
+  color: #6b7280;
+  margin-bottom: 16px;
+  line-height: 1.5;
+}

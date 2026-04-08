@@ -25,6 +25,39 @@ type licenseFieldResponse struct {
 	Value any    `json:"value"`
 }
 
+// LicenseInfoResponse represents the response from the SDK license info endpoint.
+type LicenseInfoResponse struct {
+	LicenseID      string  `json:"license_id"`
+	LicenseType    string  `json:"license_type"`
+	ExpirationTime *string `json:"expiration_time"`
+}
+
+// LicenseInfo queries the SDK for the full license info.
+func (c *Client) LicenseInfo(ctx context.Context) (*LicenseInfoResponse, error) {
+	url := c.sdkEndpoint + "/api/v1/license/info"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("license: failed to create request: %w", err)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("license: failed to query SDK: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("license: SDK returned status %d", resp.StatusCode)
+	}
+
+	var info LicenseInfoResponse
+	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
+		return nil, fmt.Errorf("license: failed to decode response: %w", err)
+	}
+
+	return &info, nil
+}
+
 // UserLimit queries the SDK for the user_limit license field and returns it as an int.
 // Returns 1 as default if the field is not set or the SDK is unreachable.
 func (c *Client) UserLimit(ctx context.Context) (int, error) {
