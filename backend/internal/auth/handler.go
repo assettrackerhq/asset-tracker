@@ -3,21 +3,25 @@ package auth
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"log"
 	"net/http"
 	"strings"
 
+	"github.com/assettrackerhq/asset-tracker/backend/internal/license"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
 )
 
 type Handler struct {
-	db        *pgxpool.Pool
-	jwtSecret string
+	db            *pgxpool.Pool
+	jwtSecret     string
+	licenseClient *license.Client
 }
 
-func NewHandler(db *pgxpool.Pool, jwtSecret string) *Handler {
-	return &Handler{db: db, jwtSecret: jwtSecret}
+func NewHandler(db *pgxpool.Pool, jwtSecret string, licenseClient *license.Client) *Handler {
+	return &Handler{db: db, jwtSecret: jwtSecret, licenseClient: licenseClient}
 }
 
 type authRequest struct {
@@ -43,6 +47,12 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(req.Password) < 8 {
 		http.Error(w, `{"error":"password must be at least 8 characters"}`, http.StatusBadRequest)
+		return
+	}
+
+	// Check license entitlement for user limit
+	if err := h.checkUserLimit(r.Context()); err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":%q}`, err.Error()), http.StatusForbidden)
 		return
 	}
 
@@ -107,4 +117,45 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(authResponse{Token: token})
+}
+
+func (h *Handler) checkUserLimit(ctx context.Context) error {
+	limit, err := h.licenseClient.UserLimit(ctx)
+	if err != nil {
+		log.Printf("license: failed to check user_limit, allowing registration: %v", err)
+		return nil
+	}
+
+	var count int
+	err = h.db.QueryRow(ctx, "SELECT COUNT(*) FROM users").Scan(&count)
+	if err != nil {
+		log.Printf("license: failed to count users: %v", err)
+		return nil
+	}
+
+	if count >= limit {
+		return fmt.Errorf("user limit reached (%d/%d). Please contact your administrator to increase the user limit in your license.", count, limit)
+	}
+	return nil
+}
+
+// UserLimitInfo returns the current user count and license limit.
+func (h *Handler) UserLimitInfo(w http.ResponseWriter, r *http.Request) {
+	limit, err := h.licenseClient.UserLimit(r.Context())
+	if err != nil {
+		log.Printf("license: failed to check user_limit: %v", err)
+		limit = 1
+	}
+
+	var count int
+	if err := h.db.QueryRow(r.Context(), "SELECT COUNT(*) FROM users").Scan(&count); err != nil {
+		http.Error(w, `{"error":"internal server error"}`, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]int{
+		"user_count": count,
+		"user_limit": limit,
+	})
 }
