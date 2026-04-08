@@ -36,10 +36,13 @@ func NewChecker(client *Client) *Checker {
 	}
 }
 
-// Run polls the SDK on the given interval until the context is cancelled.
-// It performs an immediate check before entering the loop.
-func (c *Checker) Run(ctx context.Context) {
+// CheckNow performs a single synchronous license check.
+func (c *Checker) CheckNow(ctx context.Context) {
 	c.check(ctx)
+}
+
+// Run polls the SDK on the given interval until the context is cancelled.
+func (c *Checker) Run(ctx context.Context) {
 	ticker := time.NewTicker(checkInterval)
 	defer ticker.Stop()
 	for {

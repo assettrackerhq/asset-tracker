@@ -80,6 +80,7 @@ func main() {
 
 	// Start license validity checker
 	licenseChecker := license.NewChecker(licenseClient)
+	licenseChecker.CheckNow(ctx)
 	go licenseChecker.Run(ctx)
 
 	// Auth routes (protected by license check)
