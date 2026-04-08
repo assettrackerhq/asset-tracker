@@ -15,6 +15,16 @@ async function request(path, options = {}) {
     headers,
   });
 
+  if (response.status === 403) {
+    const data = await response.json().catch(() => ({}));
+    if (data.error === 'license_expired') {
+      localStorage.removeItem('token');
+      window.location.href = '/license-expired';
+      return;
+    }
+    throw new Error(data.error || 'Forbidden');
+  }
+
   if (response.status === 401) {
     localStorage.removeItem('token');
     window.location.href = '/login';
@@ -102,4 +112,14 @@ export function updateValuePoint(assetId, valueId, value, currency) {
 
 export function deleteValuePoint(assetId, valueId) {
   return request(`/assets/${assetId}/values/${valueId}`, { method: 'DELETE' });
+}
+
+export async function getLicenseStatus() {
+  try {
+    const res = await fetch(`${API_BASE}/license/status`);
+    if (!res.ok) return { valid: true };
+    return await res.json();
+  } catch {
+    return { valid: true };
+  }
 }
