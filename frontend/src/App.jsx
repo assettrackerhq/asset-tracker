@@ -4,6 +4,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import AssetList from './pages/AssetList';
 import AssetDetail from './pages/AssetDetail';
+import LicenseExpired from './pages/LicenseExpired';
 import { checkForUpdates } from './api';
 import './App.css';
 
@@ -32,6 +33,7 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/license-expired" element={<LicenseExpired />} />
         <Route path="/assets" element={<ProtectedRoute><AssetList /></ProtectedRoute>} />
         <Route path="/assets/:id" element={<ProtectedRoute><AssetDetail /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/assets" replace />} />
