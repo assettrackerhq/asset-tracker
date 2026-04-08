@@ -33,9 +33,6 @@ cert-manager:
   imagePullSecrets:
     - name: enterprise-pull-secret
 
-ingress-nginx:
-  imagePullSecrets:
-    - name: enterprise-pull-secret
-  global:
-    image:
-      registry: proxy.assettracker.tech/proxy/assettracker/registry.k8s.io
+# ingress-nginx images are NOT proxied because registry.k8s.io uses HTTP
+# redirects to regional mirrors, which the Replicated proxy cannot follow.
+# These images pull directly from the public registry.k8s.io.
