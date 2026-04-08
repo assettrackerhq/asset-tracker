@@ -63,6 +63,14 @@
         "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
         "replicas": { "type": "integer", "minimum": 1 },
         "jwtSecret": { "type": "string", "minLength": 1 },
+        "metrics": {
+          "type": "object",
+          "properties": {
+            "sdkEndpoint": { "type": "string" },
+            "interval": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
         "resources": { "type": "object" }
       },
       "additionalProperties": false

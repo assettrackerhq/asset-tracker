@@ -39,6 +39,9 @@ backend:
   port: 8080
   replicas: 1
   jwtSecret: change-me-in-production
+  metrics:
+    sdkEndpoint: "http://asset-tracker-sdk:3000"
+    interval: "4h"
   resources:
     requests:
       cpu: 50m
