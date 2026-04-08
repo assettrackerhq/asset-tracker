@@ -1,8 +1,10 @@
+import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import AssetList from './pages/AssetList';
 import AssetDetail from './pages/AssetDetail';
+import { checkForUpdates } from './api';
 import './App.css';
 
 function ProtectedRoute({ children }) {
@@ -14,8 +16,19 @@ function ProtectedRoute({ children }) {
 }
 
 export default function App() {
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+
+  useEffect(() => {
+    checkForUpdates().then((data) => {
+      setUpdateAvailable(data.updatesAvailable);
+    });
+  }, []);
+
   return (
     <BrowserRouter>
+      {updateAvailable && (
+        <div className="update-banner">Update available</div>
+      )}
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />

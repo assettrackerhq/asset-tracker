@@ -50,6 +50,16 @@ export function getUserLimit() {
   return request('/auth/user-limit');
 }
 
+export async function checkForUpdates() {
+  try {
+    const res = await fetch(`${API_BASE}/app/updates`);
+    if (!res.ok) return { updatesAvailable: false };
+    return await res.json();
+  } catch {
+    return { updatesAvailable: false };
+  }
+}
+
 export function listAssets() {
   return request('/assets');
 }
