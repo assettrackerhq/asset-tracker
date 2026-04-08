@@ -15,6 +15,8 @@ postgresql:
   image:
     repository: proxy.assettracker.tech/proxy/assettracker/docker.io/library/postgres
     tag: "18.3-trixie"
+  imagePullSecrets:
+    - name: enterprise-pull-secret
 
 cert-manager:
   image:
@@ -28,8 +30,12 @@ cert-manager:
   startupapicheck:
     image:
       repository: proxy.assettracker.tech/proxy/assettracker/quay.io/jetstack/cert-manager-startupapicheck
+  imagePullSecrets:
+    - name: enterprise-pull-secret
 
 ingress-nginx:
+  imagePullSecrets:
+    - name: enterprise-pull-secret
   global:
     image:
       registry: proxy.assettracker.tech/proxy/assettracker/registry.k8s.io
