@@ -102,6 +102,8 @@ jobs:
               className: nginx
             ingress-nginx:
               enabled: true
+              imagePullSecrets:
+                - name: enterprise-pull-secret
               global:
                 image:
                   registry: proxy.assettracker.tech/proxy/assettracker/registry.k8s.io
@@ -114,6 +116,8 @@ jobs:
               image:
                 repository: proxy.assettracker.tech/proxy/assettracker/docker.io/library/postgres
                 tag: "18.3-trixie"
+              imagePullSecrets:
+                - name: enterprise-pull-secret
 
       - name: Expose port
         id: expose-port
