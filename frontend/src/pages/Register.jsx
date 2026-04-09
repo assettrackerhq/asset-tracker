@@ -4,6 +4,7 @@ import { register, getUserLimit } from '../api';
 
 export default function Register() {
   const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [limitInfo, setLimitInfo] = useState(null);
@@ -21,9 +22,8 @@ export default function Register() {
     e.preventDefault();
     setError('');
     try {
-      const data = await register(username, password);
-      localStorage.setItem('token', data.token);
-      navigate('/assets');
+      const data = await register(username, email, password);
+      navigate('/verify-email', { state: { userId: data.user_id } });
     } catch (err) {
       setError(err.message);
       getUserLimit().then(setLimitInfo).catch(() => {});
@@ -44,6 +44,10 @@ export default function Register() {
         <div className="form-group">
           <label>Username</label>
           <input value={username} onChange={(e) => setUsername(e.target.value)} required />
+        </div>
+        <div className="form-group">
+          <label>Email</label>
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
         </div>
         <div className="form-group">
           <label>Password</label>

@@ -1,0 +1,37 @@
+{{- if .Values.mailpit.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "asset-tracker.fullname" . }}-mailpit
+  labels:
+    {{- include "asset-tracker.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mailpit
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: mailpit
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        {{- include "asset-tracker.labels" . | nindent 8 }}
+        app.kubernetes.io/component: mailpit
+    spec:
+      {{- include "asset-tracker.imagePullSecrets" . | nindent 6 }}
+      containers:
+        - name: mailpit
+          image: {{ include "asset-tracker.proxyImage" (dict "root" . "image" (printf "docker.io/%s:%s" .Values.mailpit.image.repository .Values.mailpit.image.tag)) }}
+          ports:
+            - containerPort: 1025
+              name: smtp
+            - containerPort: 8025
+              name: http
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 128Mi
+{{- end }}

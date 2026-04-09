@@ -15,6 +15,12 @@ services:
       timeout: 5s
       retries: 5
 
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
   schemahero-apply:
     image: schemahero/schemahero:latest
     command:
@@ -36,9 +42,16 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgres://asset_tracker:asset_tracker@postgres:5432/asset_tracker?sslmode=disable}
       JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      SMTP_FROM: ${SMTP_FROM:-noreply@assettracker.local}
+      SMTP_USERNAME: ""
+      SMTP_PASSWORD: ""
     depends_on:
       schemahero-apply:
         condition: service_completed_successfully
+      mailpit:
+        condition: service_started
 
   frontend:
     image: unawake2068/asset-tracker-frontend:latest

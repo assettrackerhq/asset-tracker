@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import VerifyEmail from './pages/VerifyEmail';
 import AssetList from './pages/AssetList';
 import AssetDetail from './pages/AssetDetail';
 import LicenseExpired from './pages/LicenseExpired';
@@ -33,6 +34,7 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
         <Route path="/license-expired" element={<LicenseExpired />} />
         <Route path="/assets" element={<ProtectedRoute><AssetList /></ProtectedRoute>} />
         <Route path="/assets/:id" element={<ProtectedRoute><AssetDetail /></ProtectedRoute>} />

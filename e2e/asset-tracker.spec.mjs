@@ -1,10 +1,40 @@
 import { test, expect } from '@playwright/test';
 
-const API_URL = (process.env.BASE_URL || 'https://assets.assettracker.tech') + '/api';
+const BASE_URL = process.env.BASE_URL || 'https://assets.assettracker.tech';
+const API_URL = BASE_URL + '/api';
+const MAILPIT_URL = process.env.MAILPIT_URL || BASE_URL.replace(/:\d+$/, ':8025');
+
+// Helper: fetch the latest verification code from Mailpit for a given email
+async function getVerificationCode(request, emailAddr) {
+  // Wait briefly for the email to arrive
+  await new Promise((r) => setTimeout(r, 1000));
+
+  const resp = await request.get(`${MAILPIT_URL}/api/v1/messages?limit=5`);
+  expect(resp.status()).toBe(200);
+  const data = await resp.json();
+
+  // Find the message sent to our email address
+  const message = data.messages.find((m) =>
+    m.To.some((to) => to.Address === emailAddr)
+  );
+  expect(message).toBeTruthy();
+
+  // Get the full message to read the body
+  const msgResp = await request.get(`${MAILPIT_URL}/api/v1/message/${message.ID}`);
+  expect(msgResp.status()).toBe(200);
+  const msgData = await msgResp.json();
+
+  // Extract 6-digit code from body
+  const match = msgData.Text.match(/(\d{6})/);
+  expect(match).toBeTruthy();
+  return match[1];
+}
 
 // Shared state across tests in this file
 let token;
 let username;
+let userId;
+const testEmail = `e2e_${Date.now()}@test.assettracker.local`;
 
 test.describe.serial('Asset Tracker', () => {
 
@@ -24,16 +54,30 @@ test.describe.serial('Asset Tracker', () => {
     test('register a new user', async ({ request }) => {
       username = `e2e_${Date.now()}`;
       const resp = await request.post(`${API_URL}/auth/register`, {
-        data: { username, password: 'TestPass123!' },
+        data: { username, email: testEmail, password: 'TestPass123!' },
       });
       expect(resp.status()).toBe(201);
+
+      const body = await resp.json();
+      expect(body.user_id).toBeTruthy();
+      expect(body.message).toContain('verification');
+      userId = body.user_id;
+    });
+
+    test('verify email with code from Mailpit', async ({ request }) => {
+      const code = await getVerificationCode(request, testEmail);
+
+      const resp = await request.post(`${API_URL}/auth/verify-email`, {
+        data: { user_id: userId, code },
+      });
+      expect(resp.status()).toBe(200);
 
       const body = await resp.json();
       expect(body.token).toBeTruthy();
       token = body.token;
     });
 
-    test('login with registered user', async ({ request }) => {
+    test('login with verified user', async ({ request }) => {
       const resp = await request.post(`${API_URL}/auth/login`, {
         data: { username, password: 'TestPass123!' },
       });
@@ -60,10 +104,10 @@ test.describe.serial('Asset Tracker', () => {
       await expect(page.locator('a:has-text("Register")')).toBeVisible();
     });
 
-    test('register page renders', async ({ page }) => {
+    test('register page renders with email field', async ({ page }) => {
       await page.goto('/register');
       await expect(page.locator('h1')).toHaveText('Register');
-      await expect(page.locator('.form-group')).toHaveCount(2);
+      await expect(page.locator('.form-group')).toHaveCount(3);
       await expect(page.locator('button[type="submit"]')).toHaveText('Register');
       await expect(page.locator('a:has-text("Login")')).toBeVisible();
     });

@@ -14,6 +14,7 @@ import (
 	"github.com/assettrackerhq/asset-tracker/backend/internal/auth"
 	"github.com/assettrackerhq/asset-tracker/backend/internal/config"
 	"github.com/assettrackerhq/asset-tracker/backend/internal/database"
+	"github.com/assettrackerhq/asset-tracker/backend/internal/email"
 	"github.com/assettrackerhq/asset-tracker/backend/internal/license"
 	"github.com/assettrackerhq/asset-tracker/backend/internal/metrics"
 	"github.com/assettrackerhq/asset-tracker/backend/internal/updates"
@@ -43,6 +44,16 @@ func main() {
 	sdkEndpoint := cfg.ReplicatedSDKEndpoint + "/api/v1/app/custom-metrics"
 	reporter := metrics.New(&poolAdapter{pool}, sdkEndpoint, cfg.MetricsInterval)
 	go reporter.Run(ctx)
+
+	// Email sender + verifier
+	sender := email.NewSender(email.SMTPConfig{
+		Host:     cfg.SMTPHost,
+		Port:     cfg.SMTPPort,
+		Username: cfg.SMTPUsername,
+		Password: cfg.SMTPPassword,
+		From:     cfg.SMTPFrom,
+	})
+	verifier := email.NewVerifier(pool, sender)
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
@@ -84,11 +95,13 @@ func main() {
 	go licenseChecker.Run(ctx)
 
 	// Auth routes (protected by license check)
-	authHandler := auth.NewHandler(pool, cfg.JWTSecret, licenseClient)
+	authHandler := auth.NewHandler(pool, cfg.JWTSecret, licenseClient, verifier)
 	r.Group(func(r chi.Router) {
 		r.Use(license.LicenseMiddleware(licenseChecker))
 		r.Post("/api/auth/register", authHandler.Register)
 		r.Post("/api/auth/login", authHandler.Login)
+		r.Post("/api/auth/verify-email", authHandler.VerifyEmail)
+		r.Post("/api/auth/resend-verification", authHandler.ResendVerification)
 		r.Get("/api/auth/user-limit", authHandler.UserLimitInfo)
 	})
 
