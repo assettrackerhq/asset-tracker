@@ -18,6 +18,7 @@ spec:
         app.kubernetes.io/component: backend
     spec:
       {{- include "asset-tracker.imagePullSecrets" . | nindent 6 }}
+      serviceAccountName: {{ include "asset-tracker.fullname" . }}-backend
       initContainers:
         - name: wait-for-db
           image: {{ include "asset-tracker.proxyImage" (dict "root" . "image" "docker.io/library/busybox:1.37") }}
@@ -68,6 +69,12 @@ spec:
               value: {{ .Values.smtp.username | quote }}
             - name: SMTP_PASSWORD
               value: {{ .Values.smtp.password | quote }}
+            - name: SUPPORT_BUNDLE_IMAGE
+              value: {{ include "asset-tracker.proxyImage" (dict "root" . "image" (printf "docker.io/%s:%s" .Values.supportBundle.image.repository .Values.supportBundle.image.tag)) | quote }}
+            - name: SUPPORT_BUNDLE_SERVICE_ACCOUNT
+              value: {{ include "asset-tracker.fullname" . }}-backend
+            - name: SUPPORT_BUNDLE_IMAGE_PULL_SECRETS
+              value: {{ include "asset-tracker.imagePullSecretNames" . | quote }}
           resources:
             {{- toYaml .Values.backend.resources | nindent 12 }}
           readinessProbe:

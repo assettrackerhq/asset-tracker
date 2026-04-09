@@ -91,6 +91,11 @@ certManager:
   email: ""
   selfSigned: false
 
+supportBundle:
+  image:
+    repository: replicated/troubleshoot
+    tag: latest
+
 smtp:
   host: ""
   port: 587

@@ -142,8 +142,8 @@ test.describe.serial('Asset Tracker', () => {
       // Button should show generating state
       await expect(page.locator('button:has-text("Generating...")')).toBeVisible();
 
-      // Wait for the request to complete (success or failure depending on SDK availability)
-      await expect(page.locator('button:has-text("Generate Support Bundle")')).toBeVisible({ timeout: 30000 });
+      // Wait for the request to complete (success or failure depending on cluster environment)
+      await expect(page.locator('button:has-text("Generate Support Bundle")')).toBeVisible({ timeout: 120000 });
 
       // A status message should appear (either success or failure)
       const statusMessage = page.locator('.success, .error');
