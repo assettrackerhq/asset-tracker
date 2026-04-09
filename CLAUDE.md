@@ -75,6 +75,12 @@ The GitHub Actions CI at `.github/workflows/prepare-cluster.yml`:
 - `e2e/` — Playwright e2e tests
 - `.github/workflows/` — CI/CD pipelines
 
+## Replicated SDK
+
+The Replicated SDK pod will always CrashLoopBackOff on local installs (without a Replicated customer test or dev license). This is expected behavior — the SDK needs a valid license to start. Don't treat this as a bug during local development.
+
+When installing locally, either set `replicated.enabled=false` or simply expect the SDK pod to fail.
+
 ## Git
 
 - GPG signing fails in non-interactive shells. Use `git -c commit.gpgsign=false commit` as workaround.
