@@ -22,6 +22,9 @@ spec:
       containers:
         - name: mailpit
           image: {{ include "asset-tracker.proxyImage" (dict "root" . "image" (printf "docker.io/%s:%s" .Values.mailpit.image.repository .Values.mailpit.image.tag)) }}
+          args:
+            - --webroot
+            - /mailpit
           ports:
             - containerPort: 1025
               name: smtp
