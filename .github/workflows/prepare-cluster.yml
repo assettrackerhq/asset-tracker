@@ -124,9 +124,6 @@ jobs:
               image:
                 repository: proxy.assettracker.tech/proxy/assettracker/docker.io/axllent/mailpit
                 tag: latest
-              service:
-                type: NodePort
-                httpNodePort: 30025
 
       - name: Expose port
         id: expose-port
@@ -136,15 +133,6 @@ jobs:
           cluster-id: ${{ steps.create-cluster.outputs.cluster-id }}
           port: 30080
           protocols: https
-
-      - name: Expose Mailpit port
-        id: expose-mailpit
-        uses: replicatedhq/replicated-actions/expose-port@v1.20.0
-        with:
-          api-token: ${{ secrets.REPLICATED_API_TOKEN }}
-          cluster-id: ${{ steps.create-cluster.outputs.cluster-id }}
-          port: 30025
-          protocols: http,https
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -162,7 +150,7 @@ jobs:
         run: npx playwright test
         env:
           BASE_URL: https://${{ steps.expose-port.outputs.hostname }}
-          MAILPIT_URL: http://${{ steps.expose-mailpit.outputs.hostname }}
+          MAILPIT_URL: https://${{ steps.expose-port.outputs.hostname }}/mailpit
 
       - name: Upload Playwright report
         if: always()
