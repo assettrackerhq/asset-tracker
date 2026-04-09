@@ -90,3 +90,16 @@ certManager:
   staging: true
   email: ""
   selfSigned: false
+
+smtp:
+  host: ""
+  port: 587
+  username: ""
+  password: ""
+  from: "noreply@assettracker.local"
+
+mailpit:
+  enabled: false
+  image:
+    repository: axllent/mailpit
+    tag: latest

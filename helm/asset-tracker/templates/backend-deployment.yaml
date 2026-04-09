@@ -50,6 +50,24 @@ spec:
               value: {{ .Values.backend.metrics.sdkEndpoint | quote }}
             - name: METRICS_INTERVAL
               value: {{ .Values.backend.metrics.interval | quote }}
+            - name: SMTP_HOST
+              {{- if and .Values.mailpit.enabled (eq .Values.smtp.host "") }}
+              value: {{ include "asset-tracker.fullname" . }}-mailpit
+              {{- else }}
+              value: {{ .Values.smtp.host | quote }}
+              {{- end }}
+            - name: SMTP_PORT
+              {{- if and .Values.mailpit.enabled (eq .Values.smtp.host "") }}
+              value: "1025"
+              {{- else }}
+              value: {{ .Values.smtp.port | quote }}
+              {{- end }}
+            - name: SMTP_FROM
+              value: {{ .Values.smtp.from | quote }}
+            - name: SMTP_USERNAME
+              value: {{ .Values.smtp.username | quote }}
+            - name: SMTP_PASSWORD
+              value: {{ .Values.smtp.password | quote }}
           resources:
             {{- toYaml .Values.backend.resources | nindent 12 }}
           readinessProbe:
