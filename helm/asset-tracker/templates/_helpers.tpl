@@ -86,6 +86,35 @@ imagePullSecrets:
 {{- end -}}
 
 {{/*
+Image pull secret names as a comma-separated string (for passing as env var).
+*/}}
+{{- define "asset-tracker.imagePullSecretNames" -}}
+  {{- $pullSecrets := list }}
+  {{- with ((.Values.global).imagePullSecrets) -}}
+    {{- range . -}}
+      {{- if kindIs "map" . -}}
+        {{- $pullSecrets = append $pullSecrets .name -}}
+      {{- else -}}
+        {{- $pullSecrets = append $pullSecrets . -}}
+      {{- end }}
+    {{- end -}}
+  {{- end -}}
+  {{- with .Values.images -}}
+    {{- range .pullSecrets -}}
+      {{- if kindIs "map" . -}}
+        {{- $pullSecrets = append $pullSecrets .name -}}
+      {{- else -}}
+        {{- $pullSecrets = append $pullSecrets . -}}
+      {{- end -}}
+    {{- end -}}
+  {{- end -}}
+  {{- if hasKey (default dict ((.Values.global).replicated)) "dockerconfigjson" }}
+    {{- $pullSecrets = append $pullSecrets "enterprise-pull-secret" -}}
+  {{- end -}}
+  {{- join "," ($pullSecrets | uniq) -}}
+{{- end -}}
+
+{{/*
 PostgreSQL connection URI
 */}}
 {{- define "asset-tracker.databaseURL" -}}

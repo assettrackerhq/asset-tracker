@@ -3,20 +3,24 @@ package config
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 )
 
 type Config struct {
-	DatabaseURL           string
-	JWTSecret             string
-	Port                  string
-	ReplicatedSDKEndpoint string
-	MetricsInterval       time.Duration
-	SMTPHost              string
-	SMTPPort              string
-	SMTPUsername           string
-	SMTPPassword           string
-	SMTPFrom              string
+	DatabaseURL                   string
+	JWTSecret                     string
+	Port                          string
+	ReplicatedSDKEndpoint         string
+	MetricsInterval               time.Duration
+	SMTPHost                      string
+	SMTPPort                      string
+	SMTPUsername                   string
+	SMTPPassword                   string
+	SMTPFrom                      string
+	SupportBundleImage            string
+	SupportBundleServiceAccount   string
+	SupportBundleImagePullSecrets []string
 }
 
 func Load() (*Config, error) {
@@ -54,6 +58,25 @@ func Load() (*Config, error) {
 		smtpPort = "587"
 	}
 
+	sbImage := os.Getenv("SUPPORT_BUNDLE_IMAGE")
+	if sbImage == "" {
+		sbImage = "replicated/troubleshoot:latest"
+	}
+
+	sbServiceAccount := os.Getenv("SUPPORT_BUNDLE_SERVICE_ACCOUNT")
+	if sbServiceAccount == "" {
+		sbServiceAccount = "default"
+	}
+
+	var sbPullSecrets []string
+	if v := os.Getenv("SUPPORT_BUNDLE_IMAGE_PULL_SECRETS"); v != "" {
+		for _, s := range strings.Split(v, ",") {
+			if t := strings.TrimSpace(s); t != "" {
+				sbPullSecrets = append(sbPullSecrets, t)
+			}
+		}
+	}
+
 	return &Config{
 		DatabaseURL:           dbURL,
 		JWTSecret:             jwtSecret,
@@ -64,6 +87,9 @@ func Load() (*Config, error) {
 		SMTPPort:              smtpPort,
 		SMTPUsername:           os.Getenv("SMTP_USERNAME"),
 		SMTPPassword:           os.Getenv("SMTP_PASSWORD"),
-		SMTPFrom:              os.Getenv("SMTP_FROM"),
+		SMTPFrom:                      os.Getenv("SMTP_FROM"),
+		SupportBundleImage:            sbImage,
+		SupportBundleServiceAccount:   sbServiceAccount,
+		SupportBundleImagePullSecrets: sbPullSecrets,
 	}, nil
 }

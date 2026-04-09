@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { listAssets, createAsset, updateAsset, deleteAsset, generateSupportBundle } from '../api';
+import { listAssets, createAsset, updateAsset, deleteAsset, createSupportBundle, getSupportBundleStatus } from '../api';
 
 export default function AssetList() {
   const [assets, setAssets] = useState([]);
@@ -61,10 +61,22 @@ export default function AssetList() {
 
   async function handleGenerateBundle() {
     setGeneratingBundle(true);
-    setBundleStatus('');
+    setBundleStatus('Starting support bundle collection...');
     try {
-      await generateSupportBundle();
-      setBundleStatus('Support bundle generated and uploaded to Vendor Portal.');
+      const { name } = await createSupportBundle();
+      // Poll for job completion
+      let status = 'running';
+      while (status === 'running') {
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+        const result = await getSupportBundleStatus(name);
+        status = result.status;
+        setBundleStatus('Collecting support bundle...');
+      }
+      if (status === 'succeeded') {
+        setBundleStatus('Support bundle generated and uploaded to Vendor Portal.');
+      } else {
+        setBundleStatus('Support bundle collection failed. Check pod logs for details.');
+      }
     } catch (err) {
       setBundleStatus(`Failed to generate support bundle: ${err.message}`);
     } finally {
@@ -94,7 +106,7 @@ export default function AssetList() {
 
       {error && <p className="error">{error}</p>}
       {bundleStatus && (
-        <p className={bundleStatus.startsWith('Failed') ? 'error' : 'success'}>{bundleStatus}</p>
+        <p className={bundleStatus.startsWith('Failed') || bundleStatus.endsWith('failed. Check pod logs for details.') ? 'error' : bundleStatus.includes('Collecting') || bundleStatus.includes('Starting') ? 'info' : 'success'}>{bundleStatus}</p>
       )}
 
       {showForm && (
