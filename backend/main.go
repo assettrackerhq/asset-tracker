@@ -111,7 +111,7 @@ func main() {
 	r.Get("/api/app/updates", updateHandler.Check)
 
 	// Support bundle route (auth required, no license check — allow bundles even when license expired)
-	bundleHandler := supportbundle.NewHandler(cfg.SupportBundleImage, cfg.SupportBundleServiceAccount, cfg.SupportBundleImagePullSecrets)
+	bundleHandler := supportbundle.NewHandler(cfg.SupportBundleImage, cfg.SupportBundleServiceAccount, cfg.SupportBundleImagePullSecrets, cfg.ReplicatedSDKEndpoint)
 	r.Group(func(r chi.Router) {
 		r.Use(auth.Middleware(cfg.JWTSecret))
 		r.Post("/api/support-bundle", bundleHandler.Generate)
