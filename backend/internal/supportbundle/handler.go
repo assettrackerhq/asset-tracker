@@ -60,11 +60,11 @@ func (h *Handler) Generate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	licenseID := h.fetchLicenseID()
+	li := h.fetchLicenseInfo()
 
 	jobName := fmt.Sprintf("support-bundle-%d", time.Now().Unix())
 
-	if err := h.createJob(r.Context(), client, namespace, jobName, licenseID); err != nil {
+	if err := h.createJob(r.Context(), client, namespace, jobName, li); err != nil {
 		log.Printf("support-bundle: failed to create job %s: %v", jobName, err)
 		writeError(w, "failed to start support bundle collection", http.StatusInternalServerError)
 		return
@@ -115,33 +115,42 @@ func (h *Handler) Status(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h *Handler) fetchLicenseID() string {
+type licenseInfo struct {
+	LicenseID string
+	AppSlug   string
+}
+
+func (h *Handler) fetchLicenseInfo() licenseInfo {
 	resp, err := http.Get(h.sdkEndpoint + "/api/v1/license/info")
 	if err != nil {
 		log.Printf("support-bundle: failed to fetch license info: %v", err)
-		return ""
+		return licenseInfo{}
 	}
 	defer resp.Body.Close()
 
 	var info struct {
 		LicenseID string `json:"licenseID"`
+		AppSlug   string `json:"appSlug"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&info); err != nil {
 		log.Printf("support-bundle: failed to decode license info: %v", err)
-		return ""
+		return licenseInfo{}
 	}
-	return info.LicenseID
+	return licenseInfo{LicenseID: info.LicenseID, AppSlug: info.AppSlug}
 }
 
-func (h *Handler) buildPodSpec(licenseID string) map[string]interface{} {
+func (h *Handler) buildPodSpec(li licenseInfo) map[string]interface{} {
 	cmd := []string{
 		"support-bundle",
 		"--load-cluster-specs",
 		"--auto-upload",
 		"--interactive=false",
 	}
-	if licenseID != "" {
-		cmd = append(cmd, fmt.Sprintf("--license-id=%s", licenseID))
+	if li.LicenseID != "" {
+		cmd = append(cmd, fmt.Sprintf("--license-id=%s", li.LicenseID))
+	}
+	if li.AppSlug != "" {
+		cmd = append(cmd, fmt.Sprintf("--app-slug=%s", li.AppSlug))
 	}
 
 	spec := map[string]interface{}{
@@ -165,7 +174,7 @@ func (h *Handler) buildPodSpec(licenseID string) map[string]interface{} {
 	return spec
 }
 
-func (h *Handler) createJob(ctx context.Context, client *http.Client, namespace, jobName, licenseID string) error {
+func (h *Handler) createJob(ctx context.Context, client *http.Client, namespace, jobName string, li licenseInfo) error {
 	ttl := 300
 	backoff := int32(0)
 	job := map[string]interface{}{
@@ -183,7 +192,7 @@ func (h *Handler) createJob(ctx context.Context, client *http.Client, namespace,
 			"ttlSecondsAfterFinished": ttl,
 			"backoffLimit":            backoff,
 			"template": map[string]interface{}{
-				"spec": h.buildPodSpec(licenseID),
+				"spec": h.buildPodSpec(li),
 			},
 		},
 	}
