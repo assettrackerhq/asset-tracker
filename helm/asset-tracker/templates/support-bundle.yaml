@@ -48,4 +48,42 @@ stringData:
             name: replicated/logs
             limits:
               maxLines: 10000
-      analyzers: []
+      analyzers:
+        - deploymentStatus:
+            name: {{ include "asset-tracker.fullname" . }}-backend
+            namespace: {{ .Release.Namespace }}
+            outcomes:
+              - fail:
+                  when: "absent"
+                  message: The backend deployment is missing. The API is unavailable and users cannot access the application.
+              - fail:
+                  when: "< 1"
+                  message: The backend deployment has no ready replicas. The API is down and all application functionality is unavailable.
+              - pass:
+                  message: The backend deployment is running.
+        - deploymentStatus:
+            name: {{ include "asset-tracker.fullname" . }}-frontend
+            namespace: {{ .Release.Namespace }}
+            outcomes:
+              - fail:
+                  when: "absent"
+                  message: The frontend deployment is missing. The web UI is unavailable and users cannot access the application.
+              - fail:
+                  when: "< 1"
+                  message: The frontend deployment has no ready replicas. The web UI is down and users cannot interact with the application.
+              - pass:
+                  message: The frontend deployment is running.
+        {{- if .Values.postgresql.enabled }}
+        - statefulsetStatus:
+            name: {{ .Release.Name }}-postgresql
+            namespace: {{ .Release.Namespace }}
+            outcomes:
+              - fail:
+                  when: "absent"
+                  message: The PostgreSQL StatefulSet is missing. The database is unavailable and the application cannot store or retrieve data.
+              - fail:
+                  when: "< 1"
+                  message: The PostgreSQL StatefulSet has no ready replicas. The database is down and the application cannot process any requests.
+              - pass:
+                  message: The PostgreSQL StatefulSet is running.
+        {{- end }}
