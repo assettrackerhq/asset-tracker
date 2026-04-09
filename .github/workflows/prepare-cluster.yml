@@ -164,6 +164,19 @@ jobs:
           name: playwright-report
           path: playwright-report/
 
+      - name: Collect support bundle
+        if: always()
+        run: |
+          curl -L https://github.com/replicatedhq/troubleshoot/releases/latest/download/support-bundle_linux_amd64.tar.gz | tar xzf -
+          ./support-bundle --load-cluster-specs --interactive=false -o support-bundle 2>&1 || true
+
+      - name: Upload support bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: support-bundle
+          path: support-bundle.tar.gz
+
   promote-release:
     needs: [create-release, e2e-tests]
     runs-on: ubuntu-latest
