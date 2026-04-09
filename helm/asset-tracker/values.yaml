@@ -103,3 +103,5 @@ mailpit:
   image:
     repository: axllent/mailpit
     tag: latest
+  service:
+    type: ClusterIP
