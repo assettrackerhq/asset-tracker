@@ -144,7 +144,7 @@ jobs:
           api-token: ${{ secrets.REPLICATED_API_TOKEN }}
           cluster-id: ${{ steps.create-cluster.outputs.cluster-id }}
           port: 30025
-          protocols: https
+          protocols: http,https
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -162,7 +162,7 @@ jobs:
         run: npx playwright test
         env:
           BASE_URL: https://${{ steps.expose-port.outputs.hostname }}
-          MAILPIT_URL: https://${{ steps.expose-mailpit.outputs.hostname }}
+          MAILPIT_URL: http://${{ steps.expose-mailpit.outputs.hostname }}
 
       - name: Upload Playwright report
         if: always()
