@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { listAssets, createAsset, updateAsset, deleteAsset } from '../api';
+import { listAssets, createAsset, updateAsset, deleteAsset, generateSupportBundle } from '../api';
 
 export default function AssetList() {
   const [assets, setAssets] = useState([]);
@@ -8,6 +8,8 @@ export default function AssetList() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({ id: '', name: '', description: '' });
+  const [bundleStatus, setBundleStatus] = useState('');
+  const [generatingBundle, setGeneratingBundle] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -57,6 +59,19 @@ export default function AssetList() {
     setShowForm(true);
   }
 
+  async function handleGenerateBundle() {
+    setGeneratingBundle(true);
+    setBundleStatus('');
+    try {
+      await generateSupportBundle();
+      setBundleStatus('Support bundle generated and uploaded to Vendor Portal.');
+    } catch (err) {
+      setBundleStatus(`Failed to generate support bundle: ${err.message}`);
+    } finally {
+      setGeneratingBundle(false);
+    }
+  }
+
   function handleLogout() {
     localStorage.removeItem('token');
     navigate('/login');
@@ -70,11 +85,17 @@ export default function AssetList() {
           <button className="primary" onClick={() => { setShowForm(true); setEditingId(null); setFormData({ id: '', name: '', description: '' }); }}>
             Add Asset
           </button>
+          <button className="secondary" onClick={handleGenerateBundle} disabled={generatingBundle}>
+            {generatingBundle ? 'Generating...' : 'Generate Support Bundle'}
+          </button>
           <button className="secondary" onClick={handleLogout}>Logout</button>
         </div>
       </div>
 
       {error && <p className="error">{error}</p>}
+      {bundleStatus && (
+        <p className={bundleStatus.startsWith('Failed') ? 'error' : 'success'}>{bundleStatus}</p>
+      )}
 
       {showForm && (
         <form onSubmit={handleSubmit} style={{ marginBottom: '24px', padding: '16px', background: 'white', borderRadius: '8px' }}>

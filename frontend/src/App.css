@@ -90,6 +90,11 @@ th {
   margin-bottom: 16px;
 }
 
+.success {
+  color: #16a34a;
+  margin-bottom: 16px;
+}
+
 a {
   color: #2563eb;
 }

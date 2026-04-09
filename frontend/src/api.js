@@ -84,6 +84,10 @@ export async function checkForUpdates() {
   }
 }
 
+export function generateSupportBundle() {
+  return request('/support-bundle', { method: 'POST' });
+}
+
 export function listAssets() {
   return request('/assets');
 }

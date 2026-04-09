@@ -132,6 +132,24 @@ test.describe.serial('Asset Tracker', () => {
       await expect(page.locator('button:has-text("Logout")')).toBeVisible();
     });
 
+    test('generate support bundle button is visible and clickable', async ({ page }) => {
+      await page.goto('/assets');
+      const bundleButton = page.locator('button:has-text("Generate Support Bundle")');
+      await expect(bundleButton).toBeVisible();
+
+      await bundleButton.click();
+
+      // Button should show generating state
+      await expect(page.locator('button:has-text("Generating...")')).toBeVisible();
+
+      // Wait for the request to complete (success or failure depending on SDK availability)
+      await expect(page.locator('button:has-text("Generate Support Bundle")')).toBeVisible({ timeout: 30000 });
+
+      // A status message should appear (either success or failure)
+      const statusMessage = page.locator('.success, .error');
+      await expect(statusMessage).toBeVisible({ timeout: 5000 });
+    });
+
     test('create an asset via UI', async ({ page }) => {
       await page.goto('/assets');
 

@@ -17,6 +17,7 @@ import (
 	"github.com/assettrackerhq/asset-tracker/backend/internal/email"
 	"github.com/assettrackerhq/asset-tracker/backend/internal/license"
 	"github.com/assettrackerhq/asset-tracker/backend/internal/metrics"
+	"github.com/assettrackerhq/asset-tracker/backend/internal/supportbundle"
 	"github.com/assettrackerhq/asset-tracker/backend/internal/updates"
 	"github.com/assettrackerhq/asset-tracker/backend/internal/values"
 	"github.com/go-chi/chi/v5"
@@ -108,6 +109,13 @@ func main() {
 	// Update check route
 	updateHandler := updates.NewHandler(cfg.ReplicatedSDKEndpoint)
 	r.Get("/api/app/updates", updateHandler.Check)
+
+	// Support bundle route (auth required, no license check — allow bundles even when license expired)
+	bundleHandler := supportbundle.NewHandler(cfg.ReplicatedSDKEndpoint)
+	r.Group(func(r chi.Router) {
+		r.Use(auth.Middleware(cfg.JWTSecret))
+		r.Post("/api/support-bundle", bundleHandler.Generate)
+	})
 
 	// License status route (public, exempt from license middleware)
 	r.Get("/api/license/status", func(w http.ResponseWriter, r *http.Request) {
