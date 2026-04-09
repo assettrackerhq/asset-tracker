@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "asset-tracker.fullname" . }}-support-bundle
+  labels:
+    {{- include "asset-tracker.labels" . | nindent 4 }}
+    troubleshoot.sh/kind: support-bundle
+type: Opaque
+stringData:
+  support-bundle-spec: |
+    apiVersion: troubleshoot.sh/v1beta2
+    kind: SupportBundle
+    metadata:
+      name: {{ include "asset-tracker.fullname" . }}
+    spec:
+      collectors:
+        - clusterResources:
+            namespaces:
+              - {{ .Release.Namespace }}
+        - logs:
+            selector:
+              - app.kubernetes.io/component=backend
+              - app.kubernetes.io/instance={{ .Release.Name }}
+            namespace: {{ .Release.Namespace }}
+            name: backend/logs
+            limits:
+              maxLines: 10000
+        - logs:
+            selector:
+              - app.kubernetes.io/component=frontend
+              - app.kubernetes.io/instance={{ .Release.Name }}
+            namespace: {{ .Release.Namespace }}
+            name: frontend/logs
+            limits:
+              maxLines: 10000
+        - logs:
+            selector:
+              - app.kubernetes.io/name=postgresql
+              - app.kubernetes.io/instance={{ .Release.Name }}
+            namespace: {{ .Release.Namespace }}
+            name: postgresql/logs
+            limits:
+              maxLines: 10000
+        - logs:
+            selector:
+              - app.kubernetes.io/name=replicated
+            namespace: {{ .Release.Namespace }}
+            name: replicated/logs
+            limits:
+              maxLines: 10000
+      analyzers: []
