@@ -97,6 +97,25 @@ stringData:
               - pass:
                   message: The PostgreSQL StatefulSet is running.
         {{- end }}
+        - storageClass:
+            checkName: Default Storage Class
+            outcomes:
+              - fail:
+                  when: "< 1"
+                  message: No default storage class is configured. Persistent volumes cannot be provisioned automatically. Add a default storage class by annotating a StorageClass with storageclass.kubernetes.io/is-default-class=true.
+              - pass:
+                  message: A default storage class is configured.
+        - nodeResources:
+            checkName: Node Readiness
+            outcomes:
+              - fail:
+                  when: "count() == 0"
+                  message: No nodes were found in the cluster. The cluster may be unreachable or not properly configured.
+              - fail:
+                  when: "nodeCondition(Ready) == False"
+                  message: One or more nodes are not in Ready state. Pods may fail to schedule or run. Check node status with kubectl get nodes and investigate NotReady nodes for disk pressure, memory pressure, or network issues.
+              - pass:
+                  message: All nodes are in Ready state.
         - textAnalyze:
             checkName: Backend Health Check
             fileName: backend-health.json
