@@ -121,9 +121,6 @@ jobs:
                 - name: enterprise-pull-secret
             mailpit:
               enabled: true
-              image:
-                repository: proxy.assettracker.tech/proxy/assettracker/docker.io/axllent/mailpit
-                tag: latest
 
       - name: Expose port
         id: expose-port
