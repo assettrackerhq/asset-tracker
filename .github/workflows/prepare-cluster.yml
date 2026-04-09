@@ -119,6 +119,14 @@ jobs:
                 tag: "18.3-trixie"
               imagePullSecrets:
                 - name: enterprise-pull-secret
+            mailpit:
+              enabled: true
+              image:
+                repository: proxy.assettracker.tech/proxy/assettracker/docker.io/axllent/mailpit
+                tag: latest
+              service:
+                type: NodePort
+                httpNodePort: 30025
 
       - name: Expose port
         id: expose-port
@@ -127,6 +135,15 @@ jobs:
           api-token: ${{ secrets.REPLICATED_API_TOKEN }}
           cluster-id: ${{ steps.create-cluster.outputs.cluster-id }}
           port: 30080
+          protocols: https
+
+      - name: Expose Mailpit port
+        id: expose-mailpit
+        uses: replicatedhq/replicated-actions/expose-port@v1.20.0
+        with:
+          api-token: ${{ secrets.REPLICATED_API_TOKEN }}
+          cluster-id: ${{ steps.create-cluster.outputs.cluster-id }}
+          port: 30025
           protocols: https
 
       - name: Setup Node.js
@@ -145,6 +162,7 @@ jobs:
         run: npx playwright test
         env:
           BASE_URL: https://${{ steps.expose-port.outputs.hostname }}
+          MAILPIT_URL: https://${{ steps.expose-mailpit.outputs.hostname }}
 
       - name: Upload Playwright report
         if: always()
