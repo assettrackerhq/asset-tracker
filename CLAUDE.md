@@ -59,6 +59,55 @@ Use the Replicated CLI to create test clusters and validate changes locally inst
 - `postgresql.enabled=true` (default) — uses in-chart PostgreSQL
 - `smtp.host=""` (default) — when mailpit enabled, auto-wires to Mailpit service
 
+### Deploying to a CMX EKS Cluster
+
+1. **Create an EKS cluster:**
+   ```bash
+   source .envrc
+   replicated cluster create --distribution eks --name production-eks --ttl 48h --wait 10m
+   ```
+
+2. **Get kubeconfig:**
+   ```bash
+   replicated cluster kubeconfig <cluster-id>
+   ```
+
+3. **Set default StorageClass** (EKS clusters have `gp2` but it's not default):
+   ```bash
+   kubectl annotate storageclass gp2 storageclass.kubernetes.io/is-default-class=true
+   ```
+
+4. **Log in to the Replicated registry:**
+   ```bash
+   helm registry login registry.replicated.com --username <email> --password <license-id>
+   ```
+
+5. **Install with ingress, cert-manager, and Mailpit:**
+   ```bash
+   helm install asset-tracker oci://registry.replicated.com/assettracker/asset-tracker --version <version> \
+     --set ingress.enabled=true \
+     --set ingress.className=nginx \
+     --set ingress.host=assets.assettracker.tech \
+     --set ingress-nginx.enabled=true \
+     --set ingress-nginx.controller.service.type=LoadBalancer \
+     --set cert-manager.enabled=true \
+     --set cert-manager.installCRDs=true \
+     --set certManager.staging=false \
+     --set certManager.email=<email> \
+     --set mailpit.enabled=true
+   ```
+
+6. **Point DNS** to the LoadBalancer hostname:
+   ```bash
+   kubectl get svc | grep LoadBalancer
+   # Create a CNAME record for assets.assettracker.tech pointing to the ELB hostname
+   ```
+
+7. **Verify:**
+   - `https://assets.assettracker.tech/login` — app UI
+   - `https://assets.assettracker.tech/mailpit/` — Mailpit UI for email verification
+   - `https://assets.assettracker.tech/api/health` — backend health check
+
 ### CI Workflow
 
 The GitHub Actions CI at `.github/workflows/prepare-cluster.yml`:
