@@ -48,6 +48,16 @@ stringData:
             name: replicated/logs
             limits:
               maxLines: 10000
+        - http:
+            collectorName: backend-health
+            get:
+              url: http://{{ include "asset-tracker.fullname" . }}-backend.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.backend.port }}/api/health
+              timeout: 5s
+        - http:
+            collectorName: frontend-health
+            get:
+              url: http://{{ include "asset-tracker.fullname" . }}-frontend.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.frontend.port }}/
+              timeout: 5s
       analyzers:
         - deploymentStatus:
             name: {{ include "asset-tracker.fullname" . }}-backend
@@ -87,3 +97,25 @@ stringData:
               - pass:
                   message: The PostgreSQL StatefulSet is running.
         {{- end }}
+        - textAnalyze:
+            checkName: Backend Health Check
+            fileName: backend-health.json
+            regex: '"status":\s*"ok"'
+            outcomes:
+              - pass:
+                  when: "true"
+                  message: "Backend is healthy and responding normally."
+              - fail:
+                  when: "false"
+                  message: "Backend is not healthy. The /api/health endpoint did not return status ok."
+        - textAnalyze:
+            checkName: Frontend Health Check
+            fileName: frontend-health.json
+            regex: '"status":\s*200'
+            outcomes:
+              - pass:
+                  when: "true"
+                  message: "Frontend is healthy and serving content."
+              - fail:
+                  when: "false"
+                  message: "Frontend is not healthy. The service did not return HTTP 200."
