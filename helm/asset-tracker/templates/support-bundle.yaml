@@ -117,6 +117,22 @@ stringData:
               - pass:
                   message: All nodes are in Ready state.
         - textAnalyze:
+            checkName: Database Connection Failure
+            fileName: backend/logs/*/backend*.log
+            regex: "unable to create connection pool|unable to ping database"
+            outcomes:
+              - fail:
+                  when: "true"
+                  message: |
+                    The backend is failing to connect to PostgreSQL. The logs contain database connection errors.
+                    This usually means PostgreSQL is not running, not reachable, or the DATABASE_URL is misconfigured.
+                    Remediation: verify the PostgreSQL pod is running with 'kubectl get pods -l app.kubernetes.io/name=postgresql',
+                    check DATABASE_URL in the backend configuration, and review PostgreSQL logs in this support bundle under postgresql/logs/.
+                    Docs: https://docs.replicated.com/vendor/support-bundle-customizing
+              - pass:
+                  when: "false"
+                  message: "No database connection errors found in backend logs."
+        - textAnalyze:
             checkName: Backend Health Check
             fileName: backend-health.json
             regex: '"status":\s*"ok"'
