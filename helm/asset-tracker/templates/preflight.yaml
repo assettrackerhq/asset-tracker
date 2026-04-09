@@ -1,0 +1,119 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "asset-tracker.fullname" . }}-preflight
+  labels:
+    {{- include "asset-tracker.labels" . | nindent 4 }}
+    troubleshoot.sh/kind: preflight
+type: Opaque
+stringData:
+  preflight.yaml: |
+    apiVersion: troubleshoot.sh/v1beta2
+    kind: Preflight
+    metadata:
+      name: asset-tracker
+    spec:
+      collectors:
+        {{- if not .Values.postgresql.enabled }}
+        - postgresql:
+            collectorName: external-postgres
+            uri: {{ include "asset-tracker.databaseURL" . }}
+        {{- end }}
+      analyzers:
+        {{- if not .Values.postgresql.enabled }}
+        # Check 1: External database connectivity
+        - postgres:
+            checkName: Database Connectivity
+            collectorName: external-postgres
+            outcomes:
+              - fail:
+                  when: "connected == false"
+                  message: |
+                    Cannot connect to PostgreSQL at {{ include "asset-tracker.postgresHost" . }}:{{ include "asset-tracker.postgresPort" . }}.
+                    Verify the database is running, the credentials are correct, and the host is reachable from the cluster.
+              - pass:
+                  message: Successfully connected to external PostgreSQL database.
+        {{- end }}
+
+        # Check 2: SMTP endpoint connectivity (only when smtp.host is configured)
+        {{- if .Values.smtp.host }}
+        - textAnalyze:
+            checkName: SMTP Connectivity
+            fileName: host-collectors/tcpConnect/smtp-connectivity.json
+            regex: "connected"
+            outcomes:
+              - fail:
+                  when: "false"
+                  message: |
+                    Cannot reach SMTP server at {{ .Values.smtp.host }}:{{ .Values.smtp.port }}.
+                    Verify the SMTP server is running and accessible from the cluster network.
+              - pass:
+                  when: "true"
+                  message: SMTP server at {{ .Values.smtp.host }}:{{ .Values.smtp.port }} is reachable.
+        {{- end }}
+
+        # Check 3: Cluster resources — CPU
+        - nodeResources:
+            checkName: Cluster CPU Resources
+            outcomes:
+              - fail:
+                  when: "sum(cpuAllocatable) < 1000m"
+                  message: |
+                    Cluster has insufficient CPU. At least 1 CPU core allocatable is required.
+                    Add more nodes or increase node CPU capacity.
+              - pass:
+                  message: Cluster has sufficient CPU resources (at least 1 CPU core allocatable).
+
+        # Check 3: Cluster resources — Memory
+        - nodeResources:
+            checkName: Cluster Memory Resources
+            outcomes:
+              - fail:
+                  when: "sum(memoryAllocatable) < 2Gi"
+                  message: |
+                    Cluster has insufficient memory. At least 2Gi allocatable memory is required.
+                    Add more nodes or increase node memory capacity.
+              - pass:
+                  message: Cluster has sufficient memory resources (at least 2Gi allocatable).
+
+        # Check 4: Kubernetes version
+        - clusterVersion:
+            checkName: Kubernetes Version
+            outcomes:
+              - fail:
+                  when: "< 1.30.0"
+                  message: |
+                    Kubernetes version is not supported. Minimum required version is 1.30.
+                    Upgrade your cluster before installing Asset Tracker.
+              - warn:
+                  when: "< 1.31.0"
+                  message: |
+                    Kubernetes version 1.31 or later is recommended for best compatibility.
+                    Your cluster will work but consider upgrading.
+              - pass:
+                  message: Kubernetes version meets the minimum requirement of 1.30.
+
+        # Check 5: Distribution check
+        - distribution:
+            checkName: Kubernetes Distribution
+            outcomes:
+              - fail:
+                  when: "== docker-desktop"
+                  message: |
+                    Docker Desktop is not a supported Kubernetes distribution for Asset Tracker.
+                    See https://docs.assettracker.com/install/supported-clusters for supported options.
+              - fail:
+                  when: "== microk8s"
+                  message: |
+                    MicroK8s is not a supported Kubernetes distribution for Asset Tracker.
+                    See https://docs.assettracker.com/install/supported-clusters for supported options.
+              - pass:
+                  message: Supported Kubernetes distribution detected.
+
+      {{- if .Values.smtp.host }}
+      hostCollectors:
+        - tcpConnect:
+            collectorName: smtp-connectivity
+            address: {{ .Values.smtp.host }}:{{ .Values.smtp.port }}
+            timeout: 10s
+      {{- end }}
