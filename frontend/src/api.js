@@ -49,10 +49,24 @@ export function login(username, password) {
   });
 }
 
-export function register(username, password) {
+export function register(username, email, password) {
   return request('/auth/register', {
     method: 'POST',
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ username, email, password }),
+  });
+}
+
+export function verifyEmail(userId, code) {
+  return request('/auth/verify-email', {
+    method: 'POST',
+    body: JSON.stringify({ user_id: userId, code }),
+  });
+}
+
+export function resendVerification(userId) {
+  return request('/auth/resend-verification', {
+    method: 'POST',
+    body: JSON.stringify({ user_id: userId }),
   });
 }
 
