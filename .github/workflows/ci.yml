@@ -862,7 +862,7 @@ jobs:
         with:
           app-slug: ${{ env.APP_SLUG }}
           api-token: ${{ env.REPLICATED_API_TOKEN }}
-          channel-to: Unstable
+          channel-to: unstable
           release-sequence: ${{ needs.create-release.outputs.release-sequence }}
           release-version: ${{ env.APP_VERSION }}
 
