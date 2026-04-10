@@ -681,10 +681,9 @@ jobs:
           echo "Waiting for airgap build to complete..."
           for i in $(seq 1 60); do
             RESPONSE=$(replicated api get "/v3/app/${APP_ID}/channel/${CHANNEL_ID}" 2>/dev/null || true)
-            AIRGAP_STATUS=$(echo "$RESPONSE" | jq -r '.channel.releaseSequence // empty')
-            AIRGAP_BUILD=$(echo "$RESPONSE" | jq -r '.channel.airgapBuildStatus // empty')
+            AIRGAP_BUILD=$(echo "$RESPONSE" | jq -r '.channel.releases[0].airgapBuildStatus // empty')
             echo "Airgap build status: $AIRGAP_BUILD (attempt $i/60)"
-            if [ "$AIRGAP_BUILD" = "success" ]; then
+            if [ "$AIRGAP_BUILD" = "built" ]; then
               echo "Airgap build completed successfully"
               break
             fi
