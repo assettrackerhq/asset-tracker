@@ -63,6 +63,9 @@ spec:
                 --uri='{{ include "asset-tracker.databaseURL" . }}' \
                 --spec-file=/schemas \
                 --out=/tmp/ddl.sql && \
+              sed -i "s/default 'gen_random_uuid()'/default gen_random_uuid()/g" /tmp/ddl.sql && \
+              sed -i "s/default 'now()'/default now()/g" /tmp/ddl.sql && \
+              sed -i "s/default 'false'/default false/g" /tmp/ddl.sql && \
               /schemahero apply \
                 --driver=postgres \
                 --uri='{{ include "asset-tracker.databaseURL" . }}' \
