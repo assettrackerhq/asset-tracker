@@ -105,10 +105,25 @@ jobs:
             --disk 50 \
             --ttl 1h \
             --ssh-public-key ec-ci-key.pub \
-            --wait 5m \
             --output json)
           VM_ID=$(echo "$OUTPUT" | jq -r '.[0].id')
           echo "vm-id=$VM_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for VM to be running
+        timeout-minutes: 10
+        run: |
+          VM_ID="${{ steps.create-vm.outputs.vm-id }}"
+          for i in $(seq 1 60); do
+            STATUS=$(replicated vm ls --output json | jq -r ".[] | select(.id == \"$VM_ID\") | .status")
+            echo "VM status: $STATUS (attempt $i/60)"
+            if [ "$STATUS" = "running" ]; then
+              echo "VM is running"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "VM did not reach running state in time"
+          exit 1
 
       - name: Parse SSH endpoint
         id: ssh
@@ -130,20 +145,6 @@ jobs:
           echo "UserKnownHostsFile /dev/null" >> ~/.ssh/config
           chmod 600 ~/.ssh/config
           chmod 600 ec-ci-key
-
-      - name: Wait for SSH to be ready
-        run: |
-          for i in $(seq 1 30); do
-            if ssh -i ec-ci-key -p "${{ steps.ssh.outputs.port }}" \
-              "${{ steps.ssh.outputs.user }}@${{ steps.ssh.outputs.host }}" true 2>/dev/null; then
-              echo "SSH is ready"
-              exit 0
-            fi
-            echo "Waiting for SSH... attempt $i/30"
-            sleep 10
-          done
-          echo "SSH did not become ready in time"
-          exit 1
 
       - name: Copy license to VM
         run: |
