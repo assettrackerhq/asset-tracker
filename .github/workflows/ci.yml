@@ -803,9 +803,10 @@ jobs:
             "${{ steps.ssh.outputs.user }}@${{ steps.ssh.outputs.host }}" << 'INSTALL_SCRIPT'
           set -euo pipefail
           tar xzf ~/assettracker.tgz
+          cp ~/assettracker.airgap assets/
           sudo ./assettracker install \
             --license ~/license.yaml \
-            --airgap ~/assettracker.airgap \
+            --airgap assets/assettracker.airgap \
             --headless \
             --installer-password changeme \
             --ignore-host-preflights \
