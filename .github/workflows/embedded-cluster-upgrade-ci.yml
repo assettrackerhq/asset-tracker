@@ -79,8 +79,9 @@ jobs:
             | grep "browser_download_url.*linux_amd64.tar.gz" \
             | cut -d '"' -f 4 \
             | xargs curl -sL -o replicated.tar.gz
-          tar xzf replicated.tar.gz replicated
-          sudo mv replicated /usr/local/bin/
+          mkdir -p /tmp/replicated-cli
+          tar xzf replicated.tar.gz -C /tmp/replicated-cli replicated
+          sudo mv /tmp/replicated-cli/replicated /usr/local/bin/
 
       - name: Install Helm
         uses: azure/setup-helm@v4
@@ -295,8 +296,9 @@ jobs:
             | grep "browser_download_url.*linux_amd64.tar.gz" \
             | cut -d '"' -f 4 \
             | xargs curl -sL -o replicated.tar.gz
-          tar xzf replicated.tar.gz replicated
-          sudo mv replicated /usr/local/bin/
+          mkdir -p /tmp/replicated-cli
+          tar xzf replicated.tar.gz -C /tmp/replicated-cli replicated
+          sudo mv /tmp/replicated-cli/replicated /usr/local/bin/
 
       - name: Remove VM
         if: needs.ec-upgrade-test.outputs.vm-id != ''
