@@ -8,6 +8,8 @@ on:
 env:
   APP_VERSION: 0.1.0-${{ github.run_id }}.${{ github.run_attempt }}
   CHANNEL_NAME: ec-ci-${{ github.run_id }}
+  APP_SLUG: ${{ secrets.REPLICATED_APP_SLUG }}
+  REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
 
 jobs:
   create-release:
@@ -21,7 +23,6 @@ jobs:
         uses: azure/setup-helm@v4
 
       - name: Package Helm chart
-        id: package
         run: |
           helm repo add helmforge https://repo.helmforge.dev
           helm repo add jetstack https://charts.jetstack.io
@@ -42,8 +43,8 @@ jobs:
         id: create-release
         uses: replicatedhq/replicated-actions/create-release@v1.20.0
         with:
-          app-slug: ${{ secrets.REPLICATED_APP_SLUG }}
-          api-token: ${{ secrets.REPLICATED_API_TOKEN }}
+          app-slug: ${{ env.APP_SLUG }}
+          api-token: ${{ env.REPLICATED_API_TOKEN }}
           yaml-dir: release
           promote-channel: ${{ env.CHANNEL_NAME }}
           version: ${{ env.APP_VERSION }}
@@ -52,56 +53,146 @@ jobs:
     needs: create-release
     runs-on: ubuntu-latest
     outputs:
-      cluster-id: ${{ steps.create-cluster.outputs.cluster-id }}
+      vm-id: ${{ steps.create-vm.outputs.vm-id }}
       customer-id: ${{ steps.create-customer.outputs.customer-id }}
     steps:
-      - name: Create customer
-        id: create-customer
-        uses: replicatedhq/replicated-actions/create-customer@v1.20.0
-        with:
-          app-slug: ${{ secrets.REPLICATED_APP_SLUG }}
-          api-token: ${{ secrets.REPLICATED_API_TOKEN }}
-          customer-name: ec-ci-${{ github.run_id }}
-          customer-email: ec-ci-${{ github.run_id }}@example.com
-          channel-slug: ${{ needs.create-release.outputs.channel-slug }}
-          is-kots-install-enabled: "false"
-          expires-in: 1
+      - name: Install Replicated CLI
+        run: |
+          curl -s https://api.github.com/repos/replicatedhq/replicated/releases/latest \
+            | grep "browser_download_url.*linux_amd64.tar.gz" \
+            | cut -d '"' -f 4 \
+            | xargs curl -sL -o replicated.tar.gz
+          tar xzf replicated.tar.gz replicated
+          sudo mv replicated /usr/local/bin/
 
-      - name: Create EC v3 cluster
-        id: create-cluster
-        uses: replicatedhq/replicated-actions/create-cluster@v1.20.0
-        with:
-          api-token: ${{ secrets.REPLICATED_API_TOKEN }}
-          kubernetes-distribution: embedded-cluster-v3
-          license-id: ${{ steps.create-customer.outputs.license-id }}
-          cluster-name: ec-ci-${{ github.run_id }}
-          ttl: 1h
-          export-kubeconfig: "true"
+      - name: Create customer with Embedded Cluster entitlement
+        id: create-customer
+        run: |
+          OUTPUT=$(replicated customer create \
+            --app "$APP_SLUG" \
+            --name "ec-ci-${{ github.run_id }}" \
+            --email "ec-ci-${{ github.run_id }}@example.com" \
+            --channel "${{ needs.create-release.outputs.channel-slug }}" \
+            --embedded-cluster-download \
+            --kots-install=false \
+            --expires-in 24h \
+            --type test \
+            --output json)
+          echo "customer-id=$(echo "$OUTPUT" | jq -r '.id')" >> "$GITHUB_OUTPUT"
+          echo "license-id=$(echo "$OUTPUT" | jq -r '.installationId')" >> "$GITHUB_OUTPUT"
+
+      - name: Download license
+        run: |
+          replicated customer download-license \
+            --app "$APP_SLUG" \
+            --customer "${{ steps.create-customer.outputs.customer-id }}" \
+            --output license.yaml
+
+      - name: Generate SSH key pair
+        run: |
+          ssh-keygen -t ed25519 -f ec-ci-key -N "" -q
+          echo "SSH key pair generated"
+
+      - name: Create VM
+        id: create-vm
+        run: |
+          OUTPUT=$(replicated vm create \
+            --distribution ubuntu \
+            --version 22.04 \
+            --name "ec-ci-${{ github.run_id }}" \
+            --disk 50 \
+            --ttl 1h \
+            --ssh-public-key ec-ci-key.pub \
+            --wait 5m \
+            --output json)
+          VM_ID=$(echo "$OUTPUT" | jq -r '.[0].id')
+          echo "vm-id=$VM_ID" >> "$GITHUB_OUTPUT"
+          echo "VM created: $VM_ID"
+
+      - name: Get SSH endpoint
+        id: ssh-endpoint
+        run: |
+          SSH_ENDPOINT=$(replicated vm ssh-endpoint "${{ steps.create-vm.outputs.vm-id }}")
+          echo "endpoint=$SSH_ENDPOINT" >> "$GITHUB_OUTPUT"
+          echo "SSH endpoint: $SSH_ENDPOINT"
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "StrictHostKeyChecking no" >> ~/.ssh/config
+          echo "UserKnownHostsFile /dev/null" >> ~/.ssh/config
+          chmod 600 ~/.ssh/config
+          chmod 600 ec-ci-key
+
+      - name: Copy license to VM
+        run: |
+          # Parse ssh://user@host:port format
+          ENDPOINT="${{ steps.ssh-endpoint.outputs.endpoint }}"
+          USER_HOST_PORT=$(echo "$ENDPOINT" | sed 's|ssh://||')
+          USER=$(echo "$USER_HOST_PORT" | cut -d'@' -f1)
+          HOST_PORT=$(echo "$USER_HOST_PORT" | cut -d'@' -f2)
+          HOST=$(echo "$HOST_PORT" | cut -d':' -f1)
+          PORT=$(echo "$HOST_PORT" | cut -d':' -f2)
+          scp -i ec-ci-key -P "$PORT" license.yaml "${USER}@${HOST}:~/license.yaml"
+
+      - name: Install Embedded Cluster on VM
+        run: |
+          ENDPOINT="${{ steps.ssh-endpoint.outputs.endpoint }}"
+          USER_HOST_PORT=$(echo "$ENDPOINT" | sed 's|ssh://||')
+          USER=$(echo "$USER_HOST_PORT" | cut -d'@' -f1)
+          HOST_PORT=$(echo "$USER_HOST_PORT" | cut -d'@' -f2)
+          HOST=$(echo "$HOST_PORT" | cut -d':' -f1)
+          PORT=$(echo "$HOST_PORT" | cut -d':' -f2)
+
+          ssh -i ec-ci-key -p "$PORT" "${USER}@${HOST}" << 'INSTALL_SCRIPT'
+          set -euo pipefail
+
+          # Download the Embedded Cluster installer
+          curl -f -o assettracker.tgz "https://replicated.app/embedded/assettracker/${{ needs.create-release.outputs.channel-slug }}" \
+            -H "Authorization: $(cat ~/license.yaml | grep licenseId | awk '{print $2}')"
+
+          # Extract and install
+          tar xzf assettracker.tgz
+          sudo ./assettracker install --license ~/license.yaml --headless --ignore-host-preflights --yes
+          INSTALL_SCRIPT
 
       - name: Verify all pods are Running
         run: |
-          kubectl get pods -A
-          kubectl wait --for=condition=ready pods --all --all-namespaces --timeout=300s
-          echo "--- Final pod status ---"
-          kubectl get pods -A
+          ENDPOINT="${{ steps.ssh-endpoint.outputs.endpoint }}"
+          USER_HOST_PORT=$(echo "$ENDPOINT" | sed 's|ssh://||')
+          USER=$(echo "$USER_HOST_PORT" | cut -d'@' -f1)
+          HOST_PORT=$(echo "$USER_HOST_PORT" | cut -d'@' -f2)
+          HOST=$(echo "$HOST_PORT" | cut -d':' -f1)
+          PORT=$(echo "$HOST_PORT" | cut -d':' -f2)
 
-      - name: Expose port
+          ssh -i ec-ci-key -p "$PORT" "${USER}@${HOST}" << 'VERIFY_SCRIPT'
+          set -euo pipefail
+          sudo k0s kubectl get pods -A
+          sudo k0s kubectl wait --for=condition=ready pods --all --all-namespaces --timeout=300s
+          echo "--- Final pod status ---"
+          sudo k0s kubectl get pods -A
+          VERIFY_SCRIPT
+
+      - name: Expose app port
         id: expose-port
-        uses: replicatedhq/replicated-actions/expose-port@v1.20.0
-        with:
-          api-token: ${{ secrets.REPLICATED_API_TOKEN }}
-          cluster-id: ${{ steps.create-cluster.outputs.cluster-id }}
-          port: 30080
-          protocols: https
+        run: |
+          OUTPUT=$(replicated vm port expose "${{ steps.create-vm.outputs.vm-id }}" \
+            --port 30080 \
+            --protocol https \
+            --output json)
+          HOSTNAME=$(echo "$OUTPUT" | jq -r '.hostname // .direct_hostname // .address')
+          echo "hostname=$HOSTNAME" >> "$GITHUB_OUTPUT"
+          echo "Exposed port hostname: $HOSTNAME"
 
       - name: Verify app is accessible
         run: |
           BASE_URL="https://${{ steps.expose-port.outputs.hostname }}"
           echo "Testing health endpoint..."
-          curl -sf --retry 10 --retry-delay 5 "${BASE_URL}/api/health"
+          curl -sf --retry 10 --retry-delay 5 --max-time 10 "${BASE_URL}/api/health"
           echo ""
           echo "Testing login page..."
-          curl -sf --retry 5 --retry-delay 5 -o /dev/null -w "%{http_code}" "${BASE_URL}/login"
+          curl -sf --retry 5 --retry-delay 5 --max-time 10 -o /dev/null -w "%{http_code}" "${BASE_URL}/login"
           echo ""
           echo "App is accessible!"
 
@@ -110,26 +201,37 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - name: Remove cluster
-        if: needs.ec-install-test.outputs.cluster-id != ''
-        uses: replicatedhq/replicated-actions/remove-cluster@v1.20.0
+      - name: Install Replicated CLI
+        run: |
+          curl -s https://api.github.com/repos/replicatedhq/replicated/releases/latest \
+            | grep "browser_download_url.*linux_amd64.tar.gz" \
+            | cut -d '"' -f 4 \
+            | xargs curl -sL -o replicated.tar.gz
+          tar xzf replicated.tar.gz replicated
+          sudo mv replicated /usr/local/bin/
+
+      - name: Remove VM
+        if: needs.ec-install-test.outputs.vm-id != ''
         continue-on-error: true
-        with:
-          api-token: ${{ secrets.REPLICATED_API_TOKEN }}
-          cluster-id: ${{ needs.ec-install-test.outputs.cluster-id }}
+        run: |
+          replicated vm rm "${{ needs.ec-install-test.outputs.vm-id }}"
 
       - name: Archive customer
         if: needs.ec-install-test.outputs.customer-id != ''
-        uses: replicatedhq/replicated-actions/archive-customer@v1.20.0
         continue-on-error: true
-        with:
-          api-token: ${{ secrets.REPLICATED_API_TOKEN }}
-          customer-id: ${{ needs.ec-install-test.outputs.customer-id }}
+        run: |
+          replicated customer ls --app "$APP_SLUG" --output json \
+            | jq -r '.[] | select(.id == "${{ needs.ec-install-test.outputs.customer-id }}") | .id' \
+            || true
+          # Archive via API since CLI may not have archive command
+          curl -s -X POST \
+            "https://api.replicated.com/vendor/v3/customer/${{ needs.ec-install-test.outputs.customer-id }}/archive" \
+            -H "Authorization: $REPLICATED_API_TOKEN" || true
 
       - name: Archive channel
         uses: replicatedhq/replicated-actions/archive-channel@v1.20.0
         continue-on-error: true
         with:
-          app-slug: ${{ secrets.REPLICATED_APP_SLUG }}
-          api-token: ${{ secrets.REPLICATED_API_TOKEN }}
+          app-slug: ${{ env.APP_SLUG }}
+          api-token: ${{ env.REPLICATED_API_TOKEN }}
           channel-slug: ${{ needs.create-release.outputs.channel-slug }}
