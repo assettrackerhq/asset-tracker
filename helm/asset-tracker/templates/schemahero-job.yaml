@@ -32,6 +32,23 @@ spec:
               memory: 16Mi
             limits:
               memory: 32Mi
+        - name: copy-schemas
+          image: {{ include "asset-tracker.proxyImage" (dict "root" . "image" "docker.io/library/busybox:1.37") }}
+          command:
+            - sh
+            - -c
+            - cp /schemas-cm/*.yaml /schemas/
+          volumeMounts:
+            - name: schema-cm
+              mountPath: /schemas-cm
+            - name: schema
+              mountPath: /schemas
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              memory: 32Mi
       containers:
         - name: schemahero
           image: {{ include "asset-tracker.proxyImage" (dict "root" . "image" (printf "docker.io/%s:%s" .Values.schemahero.image.repository .Values.schemahero.image.tag)) }}
@@ -54,6 +71,8 @@ spec:
             - name: schema
               mountPath: /schemas
       volumes:
-        - name: schema
+        - name: schema-cm
           configMap:
             name: {{ include "asset-tracker.fullname" . }}-schema
+        - name: schema
+          emptyDir: {}
