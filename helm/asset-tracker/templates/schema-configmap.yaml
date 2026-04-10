@@ -5,5 +5,7 @@ metadata:
   labels:
     {{- include "asset-tracker.labels" . | nindent 4 }}
 data:
-  schema.sql: |
-    {{- .Files.Get "schema.sql" | nindent 4 }}
+  {{- range $path, $_ := .Files.Glob "tables/*.yaml" }}
+  {{ base $path }}: |
+    {{- $.Files.Get $path | nindent 4 }}
+  {{- end }}

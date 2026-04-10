@@ -42,7 +42,7 @@ spec:
             - apply
             - --driver=postgres
             - --uri={{ include "asset-tracker.databaseURL" . }}
-            - --ddl=/schemas/schema.sql
+            - --input=/schemas
           volumeMounts:
             - name: schema
               mountPath: /schemas
