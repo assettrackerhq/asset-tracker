@@ -663,7 +663,7 @@ jobs:
           echo "channel-slug=$CHANNEL_SLUG" >> "$GITHUB_OUTPUT"
           echo "channel-id=$CHANNEL_ID" >> "$GITHUB_OUTPUT"
           # Enable airgap builds on this channel
-          APP_ID=$(replicated app ls --output json | jq -r ".[] | select(.slug == \"$APP_SLUG\") | .id")
+          APP_ID=$(replicated app ls --output json | jq -r ".[] | select(.app.slug == \"$APP_SLUG\") | .app.id")
           replicated api put "/v3/app/${APP_ID}/channel/${CHANNEL_ID}" \
             --body "{\"buildAirgapAutomatically\": true, \"name\": \"ec-airgap-${{ github.run_id }}\"}"
 
@@ -676,7 +676,7 @@ jobs:
             "ec-airgap-${{ github.run_id }}" \
             --version "${{ env.APP_VERSION }}"
           # Wait for airgap build to complete
-          APP_ID=$(replicated app ls --output json | jq -r ".[] | select(.slug == \"$APP_SLUG\") | .id")
+          APP_ID=$(replicated app ls --output json | jq -r ".[] | select(.app.slug == \"$APP_SLUG\") | .app.id")
           CHANNEL_ID="${{ steps.create-channel.outputs.channel-id }}"
           echo "Waiting for airgap build to complete..."
           for i in $(seq 1 60); do
