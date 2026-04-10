@@ -14,3 +14,5 @@ spec:
       className: nginx
     ingress-nginx:
       enabled: false
+    mailpit:
+      enabled: true
