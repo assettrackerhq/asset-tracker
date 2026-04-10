@@ -2,17 +2,3 @@ apiVersion: embeddedcluster.replicated.com/v1beta1
 kind: Config
 spec:
   version: "3.0.0-alpha-31+k8s-1.34"
-  extensions:
-    helmCharts:
-      - chart:
-          name: ingress-nginx
-          chartVersion: "4.12.1"
-        releaseName: ingress-nginx
-        namespace: ingress-nginx
-        weight: 10
-        values:
-          controller:
-            service:
-              type: NodePort
-              nodePorts:
-                http: 30080

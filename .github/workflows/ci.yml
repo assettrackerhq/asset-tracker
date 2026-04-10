@@ -40,7 +40,6 @@ jobs:
           cp replicated/embedded-cluster-config.yaml release/
           cp replicated/helmchart-asset-tracker.yaml release/
           cp replicated/application.yaml release/
-          cp helm/asset-tracker/charts/ingress-nginx-4.12.1.tgz release/
           sed -i "s/chartVersion: .*/chartVersion: ${{ env.APP_VERSION }}/" release/helmchart-asset-tracker.yaml
 
       - name: Create release
@@ -424,7 +423,6 @@ jobs:
           cp replicated/embedded-cluster-config.yaml release-v1/
           cp replicated/helmchart-asset-tracker.yaml release-v1/
           cp replicated/application.yaml release-v1/
-          cp helm/asset-tracker/charts/ingress-nginx-4.12.1.tgz release-v1/
           sed -i "s/chartVersion: .*/chartVersion: $V1_VERSION/" release-v1/helmchart-asset-tracker.yaml
 
       - name: Create and promote v1 release
