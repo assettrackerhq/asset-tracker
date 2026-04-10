@@ -78,8 +78,11 @@ jobs:
             --expires-in 24h \
             --type test \
             --output json)
-          echo "customer-id=$(echo "$OUTPUT" | jq -r '.id')" >> "$GITHUB_OUTPUT"
-          echo "license-id=$(echo "$OUTPUT" | jq -r '.installationId')" >> "$GITHUB_OUTPUT"
+          CUSTOMER_ID=$(echo "$OUTPUT" | jq -r '.id')
+          LICENSE_ID=$(echo "$OUTPUT" | jq -r '.installationId')
+          echo "::add-mask::$LICENSE_ID"
+          echo "customer-id=$CUSTOMER_ID" >> "$GITHUB_OUTPUT"
+          echo "license-id=$LICENSE_ID" >> "$GITHUB_OUTPUT"
 
       - name: Download license
         run: |
@@ -89,9 +92,7 @@ jobs:
             --output license.yaml
 
       - name: Generate SSH key pair
-        run: |
-          ssh-keygen -t ed25519 -f ec-ci-key -N "" -q
-          echo "SSH key pair generated"
+        run: ssh-keygen -t ed25519 -f ec-ci-key -N "" -q
 
       - name: Create VM
         id: create-vm
@@ -107,17 +108,21 @@ jobs:
             --output json)
           VM_ID=$(echo "$OUTPUT" | jq -r '.[0].id')
           echo "vm-id=$VM_ID" >> "$GITHUB_OUTPUT"
-          echo "VM created: $VM_ID"
 
-      - name: Get SSH endpoint
-        id: ssh-endpoint
+      - name: Parse SSH endpoint
+        id: ssh
         run: |
-          SSH_ENDPOINT=$(replicated vm ssh-endpoint "${{ steps.create-vm.outputs.vm-id }}")
-          echo "endpoint=$SSH_ENDPOINT" >> "$GITHUB_OUTPUT"
-          echo "SSH endpoint: $SSH_ENDPOINT"
-
-      - name: Configure SSH
-        run: |
+          ENDPOINT=$(replicated vm ssh-endpoint "${{ steps.create-vm.outputs.vm-id }}")
+          # Parse ssh://user@host:port
+          USER_HOST_PORT=$(echo "$ENDPOINT" | sed 's|ssh://||')
+          SSH_USER=$(echo "$USER_HOST_PORT" | cut -d'@' -f1)
+          HOST_PORT=$(echo "$USER_HOST_PORT" | cut -d'@' -f2)
+          SSH_HOST=$(echo "$HOST_PORT" | cut -d':' -f1)
+          SSH_PORT=$(echo "$HOST_PORT" | cut -d':' -f2)
+          echo "user=$SSH_USER" >> "$GITHUB_OUTPUT"
+          echo "host=$SSH_HOST" >> "$GITHUB_OUTPUT"
+          echo "port=$SSH_PORT" >> "$GITHUB_OUTPUT"
+          # Configure SSH
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
           echo "StrictHostKeyChecking no" >> ~/.ssh/config
@@ -127,29 +132,19 @@ jobs:
 
       - name: Copy license to VM
         run: |
-          # Parse ssh://user@host:port format
-          ENDPOINT="${{ steps.ssh-endpoint.outputs.endpoint }}"
-          USER_HOST_PORT=$(echo "$ENDPOINT" | sed 's|ssh://||')
-          USER=$(echo "$USER_HOST_PORT" | cut -d'@' -f1)
-          HOST_PORT=$(echo "$USER_HOST_PORT" | cut -d'@' -f2)
-          HOST=$(echo "$HOST_PORT" | cut -d':' -f1)
-          PORT=$(echo "$HOST_PORT" | cut -d':' -f2)
-          scp -i ec-ci-key -P "$PORT" license.yaml "${USER}@${HOST}:~/license.yaml"
+          scp -i ec-ci-key -P "${{ steps.ssh.outputs.port }}" \
+            license.yaml "${{ steps.ssh.outputs.user }}@${{ steps.ssh.outputs.host }}:~/license.yaml"
 
       - name: Install Embedded Cluster on VM
+        timeout-minutes: 15
         run: |
-          ENDPOINT="${{ steps.ssh-endpoint.outputs.endpoint }}"
-          USER_HOST_PORT=$(echo "$ENDPOINT" | sed 's|ssh://||')
-          USER=$(echo "$USER_HOST_PORT" | cut -d'@' -f1)
-          HOST_PORT=$(echo "$USER_HOST_PORT" | cut -d'@' -f2)
-          HOST=$(echo "$HOST_PORT" | cut -d':' -f1)
-          PORT=$(echo "$HOST_PORT" | cut -d':' -f2)
-
-          ssh -i ec-ci-key -p "$PORT" "${USER}@${HOST}" << 'INSTALL_SCRIPT'
+          ssh -i ec-ci-key -p "${{ steps.ssh.outputs.port }}" \
+            "${{ steps.ssh.outputs.user }}@${{ steps.ssh.outputs.host }}" << 'INSTALL_SCRIPT'
           set -euo pipefail
 
           # Download the Embedded Cluster installer
-          curl -f -o assettracker.tgz "https://replicated.app/embedded/assettracker/${{ needs.create-release.outputs.channel-slug }}" \
+          curl -f -o assettracker.tgz \
+            "https://replicated.app/embedded/assettracker/${{ needs.create-release.outputs.channel-slug }}" \
             -H "Authorization: $(cat ~/license.yaml | grep licenseId | awk '{print $2}')"
 
           # Extract and install
@@ -158,15 +153,10 @@ jobs:
           INSTALL_SCRIPT
 
       - name: Verify all pods are Running
+        timeout-minutes: 5
         run: |
-          ENDPOINT="${{ steps.ssh-endpoint.outputs.endpoint }}"
-          USER_HOST_PORT=$(echo "$ENDPOINT" | sed 's|ssh://||')
-          USER=$(echo "$USER_HOST_PORT" | cut -d'@' -f1)
-          HOST_PORT=$(echo "$USER_HOST_PORT" | cut -d'@' -f2)
-          HOST=$(echo "$HOST_PORT" | cut -d':' -f1)
-          PORT=$(echo "$HOST_PORT" | cut -d':' -f2)
-
-          ssh -i ec-ci-key -p "$PORT" "${USER}@${HOST}" << 'VERIFY_SCRIPT'
+          ssh -i ec-ci-key -p "${{ steps.ssh.outputs.port }}" \
+            "${{ steps.ssh.outputs.user }}@${{ steps.ssh.outputs.host }}" << 'VERIFY_SCRIPT'
           set -euo pipefail
           sudo k0s kubectl get pods -A
           sudo k0s kubectl wait --for=condition=ready pods --all --all-namespaces --timeout=300s
@@ -174,6 +164,7 @@ jobs:
           sudo k0s kubectl get pods -A
           VERIFY_SCRIPT
 
+      # Port 30080 is the NodePort configured in the ingress-nginx EC extension
       - name: Expose app port
         id: expose-port
         run: |
@@ -182,8 +173,12 @@ jobs:
             --protocol https \
             --output json)
           HOSTNAME=$(echo "$OUTPUT" | jq -r '.hostname // .direct_hostname // .address')
+          if [ -z "$HOSTNAME" ] || [ "$HOSTNAME" = "null" ]; then
+            echo "ERROR: Could not determine hostname from port expose output"
+            echo "$OUTPUT"
+            exit 1
+          fi
           echo "hostname=$HOSTNAME" >> "$GITHUB_OUTPUT"
-          echo "Exposed port hostname: $HOSTNAME"
 
       - name: Verify app is accessible
         run: |
@@ -213,20 +208,15 @@ jobs:
       - name: Remove VM
         if: needs.ec-install-test.outputs.vm-id != ''
         continue-on-error: true
-        run: |
-          replicated vm rm "${{ needs.ec-install-test.outputs.vm-id }}"
+        run: replicated vm rm "${{ needs.ec-install-test.outputs.vm-id }}"
 
       - name: Archive customer
         if: needs.ec-install-test.outputs.customer-id != ''
+        uses: replicatedhq/replicated-actions/archive-customer@v1.20.0
         continue-on-error: true
-        run: |
-          replicated customer ls --app "$APP_SLUG" --output json \
-            | jq -r '.[] | select(.id == "${{ needs.ec-install-test.outputs.customer-id }}") | .id' \
-            || true
-          # Archive via API since CLI may not have archive command
-          curl -s -X POST \
-            "https://api.replicated.com/vendor/v3/customer/${{ needs.ec-install-test.outputs.customer-id }}/archive" \
-            -H "Authorization: $REPLICATED_API_TOKEN" || true
+        with:
+          api-token: ${{ env.REPLICATED_API_TOKEN }}
+          customer-id: ${{ needs.ec-install-test.outputs.customer-id }}
 
       - name: Archive channel
         uses: replicatedhq/replicated-actions/archive-channel@v1.20.0
