@@ -1,0 +1,135 @@
+name: Embedded Cluster v3 CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+
+env:
+  APP_VERSION: 0.1.0-${{ github.run_id }}.${{ github.run_attempt }}
+  CHANNEL_NAME: ec-ci-${{ github.run_id }}
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    outputs:
+      channel-slug: ${{ steps.create-release.outputs.channel-slug }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Package Helm chart
+        id: package
+        run: |
+          helm repo add helmforge https://repo.helmforge.dev
+          helm repo add jetstack https://charts.jetstack.io
+          helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+          sed -i "s/^version:.*/version: ${{ env.APP_VERSION }}/" helm/asset-tracker/Chart.yaml
+          helm dependency build helm/asset-tracker
+          helm package helm/asset-tracker --destination helm/
+
+      - name: Prepare release directory
+        run: |
+          mkdir -p release
+          cp helm/asset-tracker-*.tgz release/
+          cp replicated/embedded-cluster-config.yaml release/
+          cp replicated/helmchart-asset-tracker.yaml release/
+          sed -i "s/chartVersion: .*/chartVersion: ${{ env.APP_VERSION }}/" release/helmchart-asset-tracker.yaml
+
+      - name: Create release
+        id: create-release
+        uses: replicatedhq/replicated-actions/create-release@v1.20.0
+        with:
+          app-slug: ${{ secrets.REPLICATED_APP_SLUG }}
+          api-token: ${{ secrets.REPLICATED_API_TOKEN }}
+          yaml-dir: release
+          promote-channel: ${{ env.CHANNEL_NAME }}
+          version: ${{ env.APP_VERSION }}
+
+  ec-install-test:
+    needs: create-release
+    runs-on: ubuntu-latest
+    outputs:
+      cluster-id: ${{ steps.create-cluster.outputs.cluster-id }}
+      customer-id: ${{ steps.create-customer.outputs.customer-id }}
+    steps:
+      - name: Create customer
+        id: create-customer
+        uses: replicatedhq/replicated-actions/create-customer@v1.20.0
+        with:
+          app-slug: ${{ secrets.REPLICATED_APP_SLUG }}
+          api-token: ${{ secrets.REPLICATED_API_TOKEN }}
+          customer-name: ec-ci-${{ github.run_id }}
+          customer-email: ec-ci-${{ github.run_id }}@example.com
+          channel-slug: ${{ needs.create-release.outputs.channel-slug }}
+          is-kots-install-enabled: "false"
+          expires-in: 1
+
+      - name: Create EC v3 cluster
+        id: create-cluster
+        uses: replicatedhq/replicated-actions/create-cluster@v1.20.0
+        with:
+          api-token: ${{ secrets.REPLICATED_API_TOKEN }}
+          kubernetes-distribution: embedded-cluster-v3
+          license-id: ${{ steps.create-customer.outputs.license-id }}
+          cluster-name: ec-ci-${{ github.run_id }}
+          ttl: 1h
+          export-kubeconfig: "true"
+
+      - name: Verify all pods are Running
+        run: |
+          kubectl get pods -A
+          kubectl wait --for=condition=ready pods --all --all-namespaces --timeout=300s
+          echo "--- Final pod status ---"
+          kubectl get pods -A
+
+      - name: Expose port
+        id: expose-port
+        uses: replicatedhq/replicated-actions/expose-port@v1.20.0
+        with:
+          api-token: ${{ secrets.REPLICATED_API_TOKEN }}
+          cluster-id: ${{ steps.create-cluster.outputs.cluster-id }}
+          port: 30080
+          protocols: https
+
+      - name: Verify app is accessible
+        run: |
+          BASE_URL="https://${{ steps.expose-port.outputs.hostname }}"
+          echo "Testing health endpoint..."
+          curl -sf --retry 10 --retry-delay 5 "${BASE_URL}/api/health"
+          echo ""
+          echo "Testing login page..."
+          curl -sf --retry 5 --retry-delay 5 -o /dev/null -w "%{http_code}" "${BASE_URL}/login"
+          echo ""
+          echo "App is accessible!"
+
+  cleanup:
+    needs: [create-release, ec-install-test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Remove cluster
+        if: needs.ec-install-test.outputs.cluster-id != ''
+        uses: replicatedhq/replicated-actions/remove-cluster@v1.20.0
+        continue-on-error: true
+        with:
+          api-token: ${{ secrets.REPLICATED_API_TOKEN }}
+          cluster-id: ${{ needs.ec-install-test.outputs.cluster-id }}
+
+      - name: Archive customer
+        if: needs.ec-install-test.outputs.customer-id != ''
+        uses: replicatedhq/replicated-actions/archive-customer@v1.20.0
+        continue-on-error: true
+        with:
+          api-token: ${{ secrets.REPLICATED_API_TOKEN }}
+          customer-id: ${{ needs.ec-install-test.outputs.customer-id }}
+
+      - name: Archive channel
+        uses: replicatedhq/replicated-actions/archive-channel@v1.20.0
+        continue-on-error: true
+        with:
+          app-slug: ${{ secrets.REPLICATED_APP_SLUG }}
+          api-token: ${{ secrets.REPLICATED_API_TOKEN }}
+          channel-slug: ${{ needs.create-release.outputs.channel-slug }}
