@@ -133,10 +133,23 @@ When installing locally, either set `replicated.enabled=false` or simply expect 
 ## Embedded Cluster
 
 - All embedded cluster tasks use Embedded Cluster v3.
+- EC v3 docs (deploy preview): https://deploy-preview-3877--replicated-docs.netlify.app/embedded-cluster/v3/embedded-overview
+  - Key EC v3 pages:
+    - Overview: `/embedded-cluster/v3/embedded-overview`
+    - Configure EC: `/embedded-cluster/v3/embedded-using`
+    - EC Config reference: `/embedded-cluster/v3/embedded-config`
+    - Installation requirements: `/embedded-cluster/v3/installing-embedded-requirements`
+    - Manage nodes: `/embedded-cluster/v3/embedded-manage-nodes`
+    - Updates: `/embedded-cluster/v3/updating-embedded`
+    - Troubleshooting: `/embedded-cluster/v3/embedded-troubleshooting`
+    - Commands: `/embedded-cluster/v3/embedded-cluster-completion`
+    - Migrate from v2: `/embedded-cluster/v3/embedded-v3-migrate`
+- App icon and name in the EC installer are configured via the KOTS Application custom resource (`replicated/application.yaml`), not the Embedded Cluster Config. Use `spec.title` for the app name and `spec.icon` for the icon (base64-encoded PNG/JPG for air gap support).
 
 ## Replicated Documentation
 
 - Always use https://docs.replicated.com as the reference for solving Replicated-related tasks (support bundles, preflight checks, KOTS, SDK, etc.)
+- For EC v3 specifically, use the deploy preview at https://deploy-preview-3877--replicated-docs.netlify.app/embedded-cluster/v3/ until docs are merged
 
 ## Git
 
