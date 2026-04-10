@@ -166,7 +166,7 @@ jobs:
             "${{ steps.ssh.outputs.user }}@${{ steps.ssh.outputs.host }}" << 'VERIFY_SCRIPT'
           set -euo pipefail
           sudo assettracker shell -c "k0s kubectl get pods -A"
-          sudo assettracker shell -c "k0s kubectl wait --for=condition=ready pods --all --all-namespaces --timeout=300s"
+          sudo assettracker shell -c "k0s kubectl wait --for=condition=ready pods --all --all-namespaces --field-selector=status.phase!=Succeeded --timeout=300s"
           echo "--- Final pod status ---"
           sudo assettracker shell -c "k0s kubectl get pods -A"
           VERIFY_SCRIPT
