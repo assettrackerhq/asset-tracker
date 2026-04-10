@@ -38,11 +38,18 @@ spec:
           resources:
             {{- toYaml .Values.schemahero.resources | nindent 12 }}
           command:
-            - /schemahero
-            - apply
-            - --driver=postgres
-            - --uri={{ include "asset-tracker.databaseURL" . }}
-            - --input=/schemas
+            - sh
+            - -c
+            - |
+              /schemahero plan \
+                --driver=postgres \
+                --uri='{{ include "asset-tracker.databaseURL" . }}' \
+                --spec-file=/schemas \
+                --out=/tmp/ddl.sql && \
+              /schemahero apply \
+                --driver=postgres \
+                --uri='{{ include "asset-tracker.databaseURL" . }}' \
+                --ddl=/tmp/ddl.sql
           volumeMounts:
             - name: schema
               mountPath: /schemas
