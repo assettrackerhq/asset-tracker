@@ -6,12 +6,8 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 -- Columns added after initial release
-ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255) NOT NULL DEFAULT '';
 ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT false;
-DO $$ BEGIN
-  ALTER TABLE users ALTER COLUMN email SET NOT NULL;
-EXCEPTION WHEN others THEN NULL;
-END $$;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_unique ON users (username);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_unique ON users (email);
