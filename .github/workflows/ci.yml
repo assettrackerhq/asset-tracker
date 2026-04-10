@@ -701,7 +701,7 @@ jobs:
             --email "ec-airgap-${{ github.run_id }}@example.com" \
             --channel "ec-airgap-${{ github.run_id }}" \
             --embedded-cluster-download \
-            --airgap-download-enabled \
+            --airgap \
             --expires-in 24h \
             --type test \
             --output json)
