@@ -5,6 +5,10 @@ on:
     branches: [main]
     tags: ["v*"]
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
   APP_VERSION: 0.1.0-${{ github.run_id }}.${{ github.run_attempt }}
   APP_SLUG: ${{ secrets.REPLICATED_APP_SLUG }}
