@@ -151,6 +151,20 @@ jobs:
           chmod 600 ~/.ssh/config
           chmod 600 ec-ci-key
 
+      - name: Wait for SSH to be ready
+        run: |
+          for i in $(seq 1 30); do
+            if ssh -i ec-ci-key -p "${{ steps.ssh.outputs.port }}" \
+              "${{ steps.ssh.outputs.user }}@${{ steps.ssh.outputs.host }}" true 2>/dev/null; then
+              echo "SSH is ready"
+              exit 0
+            fi
+            echo "Waiting for SSH... attempt $i/30"
+            sleep 10
+          done
+          echo "SSH did not become ready in time"
+          exit 1
+
       - name: Copy license to VM
         run: |
           scp -i ec-ci-key -P "${{ steps.ssh.outputs.port }}" \
