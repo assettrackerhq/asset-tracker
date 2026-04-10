@@ -93,7 +93,12 @@ jobs:
             --output license.yaml
 
       - name: Generate SSH key pair
-        run: ssh-keygen -t ed25519 -f ec-ci-key -N "" -q
+        id: ssh-key
+        run: |
+          ssh-keygen -t ed25519 -f ec-ci-key -N "" -q
+          # Extract username from public key comment (user@host format)
+          SSH_USERNAME=$(awk '{print $3}' ec-ci-key.pub | cut -d'@' -f1)
+          echo "username=$SSH_USERNAME" >> "$GITHUB_OUTPUT"
 
       - name: Create VM
         id: create-vm
@@ -128,7 +133,7 @@ jobs:
       - name: Parse SSH endpoint
         id: ssh
         run: |
-          ENDPOINT=$(replicated vm ssh-endpoint "${{ steps.create-vm.outputs.vm-id }}" --username ubuntu)
+          ENDPOINT=$(replicated vm ssh-endpoint "${{ steps.create-vm.outputs.vm-id }}" --username "${{ steps.ssh-key.outputs.username }}")
           # Parse ssh://user@host:port
           USER_HOST_PORT=$(echo "$ENDPOINT" | sed 's|ssh://||')
           SSH_USER=$(echo "$USER_HOST_PORT" | cut -d'@' -f1)
