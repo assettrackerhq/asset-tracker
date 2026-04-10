@@ -129,7 +129,7 @@ test.describe.serial('Asset Tracker', () => {
       await page.goto('/assets');
       await expect(page.locator('h1')).toHaveText('My Assets');
       await expect(page.locator('button:has-text("Add Asset")')).toBeVisible();
-      await expect(page.locator('button:has-text("Logout")')).toBeVisible();
+      await expect(page.locator('nav.nav-bar button:has-text("Logout")')).toBeVisible();
     });
 
     test('generate support bundle button is visible and clickable', async ({ page }) => {
@@ -209,7 +209,7 @@ test.describe.serial('Asset Tracker', () => {
 
     test('logout returns to login page', async ({ page }) => {
       await page.goto('/assets');
-      await page.locator('button:has-text("Logout")').click();
+      await page.locator('nav.nav-bar button:has-text("Logout")').click();
       await expect(page).toHaveURL(/\/login/);
     });
   });
@@ -299,6 +299,128 @@ test.describe.serial('Asset Tracker', () => {
     test('reject unauthenticated requests', async ({ request }) => {
       const resp = await request.get(`${API_URL}/assets`);
       expect(resp.status()).toBe(401);
+    });
+  });
+
+  test.describe('API - Exchange Rates', () => {
+    const authHeaders = () => ({
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    });
+
+    test('create exchange rate via API', async ({ request }) => {
+      const resp = await request.post(`${API_URL}/exchange-rates`, {
+        headers: authHeaders(),
+        data: { base_currency: 'USD', target_currency: 'EUR', rate: 0.92 },
+      });
+      expect(resp.status()).toBe(201);
+
+      const body = await resp.json();
+      expect(body.base_currency).toBe('USD');
+      expect(body.target_currency).toBe('EUR');
+      expect(Number(body.rate)).toBeCloseTo(0.92);
+    });
+
+    test('list exchange rates returns created rate', async ({ request }) => {
+      const resp = await request.get(`${API_URL}/exchange-rates`, {
+        headers: authHeaders(),
+      });
+      expect(resp.status()).toBe(200);
+
+      const rates = await resp.json();
+      expect(rates.length).toBeGreaterThanOrEqual(1);
+      const usdEur = rates.find(r => r.base_currency === 'USD' && r.target_currency === 'EUR');
+      expect(usdEur).toBeTruthy();
+    });
+
+    test('upsert exchange rate updates existing', async ({ request }) => {
+      const resp = await request.post(`${API_URL}/exchange-rates`, {
+        headers: authHeaders(),
+        data: { base_currency: 'USD', target_currency: 'EUR', rate: 0.95 },
+      });
+      expect(resp.status()).toBe(201);
+
+      const body = await resp.json();
+      expect(Number(body.rate)).toBeCloseTo(0.95);
+    });
+
+    test('reject unauthenticated exchange rate requests', async ({ request }) => {
+      const resp = await request.get(`${API_URL}/exchange-rates`);
+      expect(resp.status()).toBe(401);
+    });
+  });
+
+  test.describe('API - Analytics', () => {
+    const authHeaders = () => ({
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    });
+
+    test('portfolio analytics returns data in requested currency', async ({ request }) => {
+      const resp = await request.get(`${API_URL}/analytics/portfolio?currency=USD`, {
+        headers: authHeaders(),
+      });
+      expect(resp.status()).toBe(200);
+
+      const body = await resp.json();
+      expect(body.currency).toBe('USD');
+      expect(typeof body.total_value).toBe('number');
+      expect(Array.isArray(body.series)).toBe(true);
+    });
+
+    test('portfolio analytics returns empty series when no data', async ({ request }) => {
+      const resp = await request.get(`${API_URL}/analytics/portfolio?currency=JPY`, {
+        headers: authHeaders(),
+      });
+      expect(resp.status()).toBe(200);
+
+      const body = await resp.json();
+      expect(body.currency).toBe('JPY');
+      expect(Array.isArray(body.series)).toBe(true);
+    });
+
+    test('reject unauthenticated analytics requests', async ({ request }) => {
+      const resp = await request.get(`${API_URL}/analytics/portfolio?currency=USD`);
+      expect(resp.status()).toBe(401);
+    });
+  });
+
+  test.describe('UI - Analytics', () => {
+    test.beforeEach(async ({ page }) => {
+      await page.goto('/');
+      await page.evaluate((t) => localStorage.setItem('token', t), token);
+    });
+
+    test('nav bar is visible on assets page', async ({ page }) => {
+      await page.goto('/assets');
+      await expect(page.locator('nav.nav-bar')).toBeVisible();
+      await expect(page.locator('a.nav-link:has-text("Assets")')).toBeVisible();
+      await expect(page.locator('a.nav-link:has-text("Analytics")')).toBeVisible();
+      await expect(page.locator('a.nav-link:has-text("Exchange Rates")')).toBeVisible();
+    });
+
+    test('navigate to analytics page via nav bar', async ({ page }) => {
+      await page.goto('/assets');
+      await page.locator('a.nav-link:has-text("Analytics")').click();
+      await expect(page.locator('h1')).toHaveText('Analytics');
+    });
+
+    test('analytics page shows portfolio value', async ({ page }) => {
+      await page.goto('/analytics');
+      await expect(page.locator('.summary-card')).toBeVisible({ timeout: 5000 });
+      await expect(page.locator('.summary-label')).toHaveText('Total Portfolio Value');
+    });
+
+    test('navigate to exchange rates page via nav bar', async ({ page }) => {
+      await page.goto('/assets');
+      await page.locator('a.nav-link:has-text("Exchange Rates")').click();
+      await expect(page.locator('h1')).toHaveText('Exchange Rates');
+    });
+
+    test('exchange rates page shows fetch button', async ({ page }) => {
+      await page.goto('/exchange-rates');
+      await expect(page.locator('button:has-text("Fetch Current Rates")')).toBeVisible();
+      await expect(page.locator('button:has-text("Add Rate")')).toBeVisible();
     });
   });
 });

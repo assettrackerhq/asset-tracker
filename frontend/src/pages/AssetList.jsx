@@ -84,11 +84,6 @@ export default function AssetList() {
     }
   }
 
-  function handleLogout() {
-    localStorage.removeItem('token');
-    navigate('/login');
-  }
-
   return (
     <div className="container">
       <div className="header">
@@ -100,7 +95,6 @@ export default function AssetList() {
           <button className="secondary" onClick={handleGenerateBundle} disabled={generatingBundle}>
             {generatingBundle ? 'Generating...' : 'Generate Support Bundle'}
           </button>
-          <button className="secondary" onClick={handleLogout}>Logout</button>
         </div>
       </div>
 

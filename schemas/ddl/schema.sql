@@ -36,3 +36,13 @@ CREATE TABLE IF NOT EXISTS verification_codes (
     expires_at TIMESTAMP NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now()
 );
+
+CREATE TABLE IF NOT EXISTS exchange_rates (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    base_currency VARCHAR(3) NOT NULL,
+    target_currency VARCHAR(3) NOT NULL,
+    rate NUMERIC(15,6) NOT NULL,
+    updated_at TIMESTAMP NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_exchange_rates_unique ON exchange_rates (base_currency, target_currency);
