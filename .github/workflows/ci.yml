@@ -217,7 +217,7 @@ jobs:
             --app "$APP_SLUG" \
             --name "ec-${{ github.run_id }}" \
             --output json)
-          CHANNEL_SLUG=$(echo "$CHANNEL_OUTPUT" | jq -r '.slug // .Slug')
+          CHANNEL_SLUG=$(echo "$CHANNEL_OUTPUT" | jq -r '.[0].channelSlug')
           echo "channel-slug=$CHANNEL_SLUG" >> "$GITHUB_OUTPUT"
           replicated release promote \
             --app "$APP_SLUG" \
@@ -411,7 +411,7 @@ jobs:
             --app "$APP_SLUG" \
             --name "ec-upgrade-${{ github.run_id }}" \
             --output json)
-          CHANNEL_SLUG=$(echo "$CHANNEL_OUTPUT" | jq -r '.slug // .Slug')
+          CHANNEL_SLUG=$(echo "$CHANNEL_OUTPUT" | jq -r '.[0].channelSlug')
           echo "channel-slug=$CHANNEL_SLUG" >> "$GITHUB_OUTPUT"
 
       - name: Package and create v1 release
@@ -658,8 +658,8 @@ jobs:
             --app "$APP_SLUG" \
             --name "ec-airgap-${{ github.run_id }}" \
             --output json)
-          CHANNEL_SLUG=$(echo "$CHANNEL_OUTPUT" | jq -r '.slug // .Slug')
-          CHANNEL_ID=$(echo "$CHANNEL_OUTPUT" | jq -r '.id // .Id')
+          CHANNEL_SLUG=$(echo "$CHANNEL_OUTPUT" | jq -r '.[0].channelSlug')
+          CHANNEL_ID=$(echo "$CHANNEL_OUTPUT" | jq -r '.[0].id')
           echo "channel-slug=$CHANNEL_SLUG" >> "$GITHUB_OUTPUT"
           echo "channel-id=$CHANNEL_ID" >> "$GITHUB_OUTPUT"
           # Enable airgap builds on this channel
