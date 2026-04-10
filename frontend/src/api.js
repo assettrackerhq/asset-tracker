@@ -145,3 +145,29 @@ export async function getLicenseStatus() {
     return { valid: true };
   }
 }
+
+export function listExchangeRates() {
+  return request('/exchange-rates');
+}
+
+export function upsertExchangeRate(baseCurrency, targetCurrency, rate) {
+  return request('/exchange-rates', {
+    method: 'POST',
+    body: JSON.stringify({ base_currency: baseCurrency, target_currency: targetCurrency, rate: parseFloat(rate) }),
+  });
+}
+
+export function deleteExchangeRate(id) {
+  return request(`/exchange-rates/${id}`, { method: 'DELETE' });
+}
+
+export function fetchExchangeRates(baseCurrency) {
+  return request('/exchange-rates/fetch', {
+    method: 'POST',
+    body: JSON.stringify({ base_currency: baseCurrency }),
+  });
+}
+
+export function getPortfolioAnalytics(currency) {
+  return request(`/analytics/portfolio?currency=${encodeURIComponent(currency)}`);
+}
