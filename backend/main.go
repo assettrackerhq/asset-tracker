@@ -10,8 +10,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/assettrackerhq/asset-tracker/backend/internal/analytics"
 	"github.com/assettrackerhq/asset-tracker/backend/internal/assets"
 	"github.com/assettrackerhq/asset-tracker/backend/internal/auth"
+	"github.com/assettrackerhq/asset-tracker/backend/internal/exchangerates"
 	"github.com/assettrackerhq/asset-tracker/backend/internal/config"
 	"github.com/assettrackerhq/asset-tracker/backend/internal/database"
 	"github.com/assettrackerhq/asset-tracker/backend/internal/email"
@@ -145,6 +147,25 @@ func main() {
 		r.Post("/{assetID}/values", valueHandler.Create)
 		r.Put("/{assetID}/values/{valueID}", valueHandler.Update)
 		r.Delete("/{assetID}/values/{valueID}", valueHandler.Delete)
+	})
+
+	// Exchange rates routes (protected by license check + auth)
+	exchangeRateHandler := exchangerates.NewHandler(pool)
+	r.Route("/api/exchange-rates", func(r chi.Router) {
+		r.Use(license.LicenseMiddleware(licenseChecker))
+		r.Use(auth.Middleware(cfg.JWTSecret))
+		r.Get("/", exchangeRateHandler.List)
+		r.Post("/", exchangeRateHandler.Upsert)
+		r.Delete("/{id}", exchangeRateHandler.Delete)
+		r.Post("/fetch", exchangeRateHandler.Fetch)
+	})
+
+	// Analytics routes (protected by license check + auth)
+	analyticsHandler := analytics.NewHandler(pool)
+	r.Route("/api/analytics", func(r chi.Router) {
+		r.Use(license.LicenseMiddleware(licenseChecker))
+		r.Use(auth.Middleware(cfg.JWTSecret))
+		r.Get("/portfolio", analyticsHandler.Portfolio)
 	})
 
 	addr := fmt.Sprintf(":%s", cfg.Port)
