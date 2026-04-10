@@ -6,11 +6,11 @@ spec:
     helmCharts:
       - chart:
           name: ingress-nginx
-          chartVersion: "4.11.3"
+          chartVersion: "4.12.1"
         releaseName: ingress-nginx
         namespace: ingress-nginx
         weight: 10
-        values: |
+        values:
           controller:
             service:
               type: NodePort
