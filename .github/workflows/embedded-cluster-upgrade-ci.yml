@@ -218,7 +218,7 @@ jobs:
           echo "hostname=$HOSTNAME" >> "$GITHUB_OUTPUT"
 
       - name: Run seed tests (create data on v1)
-        run: npx playwright test e2e/ec-upgrade-seed.spec.mjs
+        run: npx playwright test --config e2e/playwright.ec-upgrade.config.mjs ec-upgrade-seed.spec.mjs
         env:
           BASE_URL: https://${{ steps.expose-port.outputs.hostname }}
           MAILPIT_URL: https://${{ steps.expose-port.outputs.hostname }}/mailpit
@@ -281,7 +281,7 @@ jobs:
           VERIFY_SCRIPT
 
       - name: Run verify tests (check data persists after upgrade)
-        run: npx playwright test e2e/ec-upgrade-verify.spec.mjs
+        run: npx playwright test --config e2e/playwright.ec-upgrade.config.mjs ec-upgrade-verify.spec.mjs
         env:
           BASE_URL: https://${{ steps.expose-port.outputs.hostname }}
 
