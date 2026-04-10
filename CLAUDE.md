@@ -130,6 +130,10 @@ The Replicated SDK pod will always CrashLoopBackOff on local installs (without a
 
 When installing locally, either set `replicated.enabled=false` or simply expect the SDK pod to fail.
 
+## Embedded Cluster
+
+- All embedded cluster tasks use Embedded Cluster v3.
+
 ## Replicated Documentation
 
 - Always use https://docs.replicated.com as the reference for solving Replicated-related tasks (support bundles, preflight checks, KOTS, SDK, etc.)

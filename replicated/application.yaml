@@ -1,0 +1,9 @@
+apiVersion: kots.io/v1beta1
+kind: Application
+metadata:
+  name: asset-tracker
+spec:
+  title: Asset Tracker
+  statusInformers:
+    - deployment/asset-tracker-backend
+    - deployment/asset-tracker-frontend
