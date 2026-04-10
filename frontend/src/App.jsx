@@ -27,10 +27,7 @@ function Layout({ children, updateAvailable }) {
 
   return (
     <>
-      {updateAvailable && (
-        <div className="update-banner">Update available</div>
-      )}
-      {showNav && <NavBar />}
+      {showNav && <NavBar updateAvailable={updateAvailable} />}
       {children}
     </>
   );

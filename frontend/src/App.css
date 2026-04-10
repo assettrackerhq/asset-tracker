@@ -120,18 +120,19 @@ a {
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
-.update-banner {
-  position: fixed;
-  top: 16px;
-  right: 16px;
+.update-badge {
   background: #2563eb;
   color: white;
-  padding: 8px 16px;
-  border-radius: 6px;
-  font-size: 14px;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 13px;
   font-weight: 500;
-  z-index: 1000;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .license-expired-text {

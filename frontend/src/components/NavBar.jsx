@@ -1,6 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 
-export default function NavBar() {
+export default function NavBar({ updateAvailable }) {
   const navigate = useNavigate();
 
   function handleLogout() {
@@ -15,7 +15,10 @@ export default function NavBar() {
         <NavLink to="/analytics" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>Analytics</NavLink>
         <NavLink to="/exchange-rates" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>Exchange Rates</NavLink>
       </div>
-      <button className="secondary" onClick={handleLogout}>Logout</button>
+      <div className="nav-right">
+        {updateAvailable && <span className="update-badge">Update available</span>}
+        <button className="secondary" onClick={handleLogout}>Logout</button>
+      </div>
     </nav>
   );
 }
