@@ -1,11 +1,17 @@
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     username VARCHAR(255) NOT NULL,
-    email VARCHAR(255) NOT NULL,
-    email_verified BOOLEAN NOT NULL DEFAULT false,
     password_hash VARCHAR(255) NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT now()
 );
+
+-- Columns added after initial release
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(255);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT false;
+DO $$ BEGIN
+  ALTER TABLE users ALTER COLUMN email SET NOT NULL;
+EXCEPTION WHEN others THEN NULL;
+END $$;
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_unique ON users (username);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_unique ON users (email);
