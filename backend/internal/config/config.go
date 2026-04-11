@@ -18,6 +18,7 @@ type Config struct {
 	SMTPUsername                   string
 	SMTPPassword                   string
 	SMTPFrom                      string
+	AnalyticsEnabled              bool
 	SupportBundleImage            string
 	SupportBundleServiceAccount   string
 	SupportBundleImagePullSecrets []string
@@ -68,6 +69,11 @@ func Load() (*Config, error) {
 		sbServiceAccount = "default"
 	}
 
+	analyticsEnabled := true
+	if v := os.Getenv("ANALYTICS_ENABLED"); v != "" {
+		analyticsEnabled = strings.EqualFold(v, "true") || v == "1"
+	}
+
 	var sbPullSecrets []string
 	if v := os.Getenv("SUPPORT_BUNDLE_IMAGE_PULL_SECRETS"); v != "" {
 		for _, s := range strings.Split(v, ",") {
@@ -88,6 +94,7 @@ func Load() (*Config, error) {
 		SMTPUsername:           os.Getenv("SMTP_USERNAME"),
 		SMTPPassword:           os.Getenv("SMTP_PASSWORD"),
 		SMTPFrom:                      os.Getenv("SMTP_FROM"),
+		AnalyticsEnabled:              analyticsEnabled,
 		SupportBundleImage:            sbImage,
 		SupportBundleServiceAccount:   sbServiceAccount,
 		SupportBundleImagePullSecrets: sbPullSecrets,

@@ -131,6 +131,22 @@ func main() {
 		json.NewEncoder(w).Encode(resp)
 	})
 
+	// Features endpoint (auth required, returns feature flags)
+	r.Group(func(r chi.Router) {
+		r.Use(auth.Middleware(cfg.JWTSecret))
+		r.Get("/api/features", func(w http.ResponseWriter, r *http.Request) {
+			enabled, err := licenseClient.AnalyticsEnabled(r.Context())
+			if err != nil {
+				log.Printf("license: failed to check analytics_enabled, using default: %v", err)
+				enabled = cfg.AnalyticsEnabled
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]any{
+				"analytics_enabled": enabled,
+			})
+		})
+	})
+
 	// Asset routes (protected by license check + auth)
 	assetHandler := assets.NewHandler(pool)
 	valueHandler := values.NewHandler(pool)
@@ -149,22 +165,24 @@ func main() {
 		r.Delete("/{assetID}/values/{valueID}", valueHandler.Delete)
 	})
 
-	// Exchange rates routes (protected by license check + auth)
+	// Exchange rates routes (protected by license check + auth + analytics entitlement)
 	exchangeRateHandler := exchangerates.NewHandler(pool)
 	r.Route("/api/exchange-rates", func(r chi.Router) {
 		r.Use(license.LicenseMiddleware(licenseChecker))
 		r.Use(auth.Middleware(cfg.JWTSecret))
+		r.Use(analyticsFeatureGate(licenseClient, cfg.AnalyticsEnabled))
 		r.Get("/", exchangeRateHandler.List)
 		r.Post("/", exchangeRateHandler.Upsert)
 		r.Delete("/{id}", exchangeRateHandler.Delete)
 		r.Post("/fetch", exchangeRateHandler.Fetch)
 	})
 
-	// Analytics routes (protected by license check + auth)
+	// Analytics routes (protected by license check + auth + analytics entitlement)
 	analyticsHandler := analytics.NewHandler(pool)
 	r.Route("/api/analytics", func(r chi.Router) {
 		r.Use(license.LicenseMiddleware(licenseChecker))
 		r.Use(auth.Middleware(cfg.JWTSecret))
+		r.Use(analyticsFeatureGate(licenseClient, cfg.AnalyticsEnabled))
 		r.Get("/portfolio", analyticsHandler.Portfolio)
 	})
 
@@ -183,6 +201,29 @@ func main() {
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer shutdownCancel()
 	srv.Shutdown(shutdownCtx)
+}
+
+// analyticsFeatureGate returns middleware that queries the SDK for the analytics_enabled
+// entitlement on each request. Falls back to the static config value if the SDK is unavailable.
+func analyticsFeatureGate(client *license.Client, fallback bool) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			enabled, err := client.AnalyticsEnabled(r.Context())
+			if err != nil {
+				log.Printf("license: failed to check analytics_enabled, using fallback (%v): %v", fallback, err)
+				enabled = fallback
+			}
+			if !enabled {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusForbidden)
+				json.NewEncoder(w).Encode(map[string]string{
+					"error": "feature_disabled",
+				})
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
 }
 
 // poolAdapter adapts pgxpool.Pool to the metrics.UserCounter interface.
