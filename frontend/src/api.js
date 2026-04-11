@@ -174,7 +174,14 @@ export function getPortfolioAnalytics(currency) {
 
 export async function getFeatures() {
   try {
-    return await request('/features');
+    const token = localStorage.getItem('token');
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const res = await fetch(`${API_BASE}/features`, { headers });
+    if (!res.ok) return { analytics_enabled: true };
+    return await res.json();
   } catch {
     return { analytics_enabled: true };
   }
