@@ -719,19 +719,11 @@ jobs:
             --customer "${{ steps.create-customer.outputs.customer-id }}" \
             --output license.yaml
 
-      - name: Download airgap bundle
-        run: |
-          LICENSE_ID="${{ steps.create-customer.outputs.license-id }}"
-          curl -fL -o assettracker.airgap \
-            "https://replicated.app/embedded/assettracker/ec-airgap-${{ github.run_id }}?airgap=true" \
-            -H "Authorization: $LICENSE_ID"
-          ls -lh assettracker.airgap
-
-      - name: Download EC installer for airgap
+      - name: Download EC airgap installer bundle
         run: |
           LICENSE_ID="${{ steps.create-customer.outputs.license-id }}"
           curl -fL -o assettracker.tgz \
-            "https://replicated.app/embedded/assettracker/ec-airgap-${{ github.run_id }}" \
+            "https://replicated.app/embedded/assettracker/ec-airgap-${{ github.run_id }}?airgap=true" \
             -H "Authorization: $LICENSE_ID"
           ls -lh assettracker.tgz
 
@@ -794,7 +786,7 @@ jobs:
       - name: Transfer files to VM
         run: |
           scp -i ec-ci-key -P "${{ steps.ssh.outputs.port }}" \
-            license.yaml assettracker.tgz assettracker.airgap \
+            license.yaml assettracker.tgz \
             "${{ steps.ssh.outputs.user }}@${{ steps.ssh.outputs.host }}:~/"
 
       - name: Install Embedded Cluster (airgap)
@@ -804,7 +796,6 @@ jobs:
             "${{ steps.ssh.outputs.user }}@${{ steps.ssh.outputs.host }}" << 'INSTALL_SCRIPT'
           set -euo pipefail
           tar xzf ~/assettracker.tgz
-          cp ~/assettracker.airgap assets/
           sudo ./assettracker install \
             --license ~/license.yaml \
             --airgap assets/assettracker.airgap \
