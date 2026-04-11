@@ -78,7 +78,7 @@
           },
           "additionalProperties": false
         },
-        "analyticsEnabled": { "type": "boolean" },
+        "analyticsEnabled": { "type": ["boolean", "string"] },
         "resources": { "type": "object" }
       },
       "additionalProperties": false
