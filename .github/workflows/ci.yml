@@ -662,8 +662,9 @@ jobs:
           echo "channel-id=$CHANNEL_ID" >> "$GITHUB_OUTPUT"
           # Enable airgap builds on this channel
           APP_ID=$(replicated app ls --output json | jq -r ".[] | select(.app.slug == \"$APP_SLUG\") | .app.id")
-          replicated api put "/v3/app/${APP_ID}/channel/${CHANNEL_ID}" \
-            --body "{\"autoAirgapBuildsValue\": 1, \"name\": \"ec-airgap-${{ github.run_id }}\"}"
+          replicated api patch "/v3/app/${APP_ID}/channel/${CHANNEL_ID}" \
+            --body "{\"autoAirgapBuildsValue\": true, \"airgapDockerRegistryFormatEnabled\": true}"
+          sleep 5
 
       - name: Promote release to airgap channel and wait for bundle
         id: promote-airgap
