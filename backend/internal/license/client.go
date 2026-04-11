@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 // Client queries the Replicated SDK for license entitlement fields.
@@ -105,6 +106,44 @@ func (c *Client) UserLimit(ctx context.Context) (int, error) {
 	}
 
 	return parseIntValue(field.Value)
+}
+
+// AnalyticsEnabled queries the SDK for the analytics_enabled license field.
+// Returns true as default if the field is not set or the SDK is unreachable.
+func (c *Client) AnalyticsEnabled(ctx context.Context) (bool, error) {
+	url := c.sdkEndpoint + "/api/v1/license/fields/analytics_enabled"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return true, fmt.Errorf("license: failed to create request: %w", err)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return true, fmt.Errorf("license: failed to query SDK: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return true, fmt.Errorf("license: SDK returned status %d", resp.StatusCode)
+	}
+
+	var field licenseFieldResponse
+	if err := json.NewDecoder(resp.Body).Decode(&field); err != nil {
+		return true, fmt.Errorf("license: failed to decode response: %w", err)
+	}
+
+	return parseBoolValue(field.Value)
+}
+
+func parseBoolValue(v any) (bool, error) {
+	switch val := v.(type) {
+	case bool:
+		return val, nil
+	case string:
+		return strings.EqualFold(val, "true") || val == "1", nil
+	default:
+		return true, fmt.Errorf("license: unexpected value type %T for bool field", v)
+	}
 }
 
 func parseIntValue(v any) (int, error) {

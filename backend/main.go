@@ -135,9 +135,14 @@ func main() {
 	r.Group(func(r chi.Router) {
 		r.Use(auth.Middleware(cfg.JWTSecret))
 		r.Get("/api/features", func(w http.ResponseWriter, r *http.Request) {
+			enabled, err := licenseClient.AnalyticsEnabled(r.Context())
+			if err != nil {
+				log.Printf("license: failed to check analytics_enabled, using default: %v", err)
+				enabled = cfg.AnalyticsEnabled
+			}
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(map[string]any{
-				"analytics_enabled": cfg.AnalyticsEnabled,
+				"analytics_enabled": enabled,
 			})
 		})
 	})
@@ -165,7 +170,7 @@ func main() {
 	r.Route("/api/exchange-rates", func(r chi.Router) {
 		r.Use(license.LicenseMiddleware(licenseChecker))
 		r.Use(auth.Middleware(cfg.JWTSecret))
-		r.Use(featureGate(cfg.AnalyticsEnabled))
+		r.Use(analyticsFeatureGate(licenseClient, cfg.AnalyticsEnabled))
 		r.Get("/", exchangeRateHandler.List)
 		r.Post("/", exchangeRateHandler.Upsert)
 		r.Delete("/{id}", exchangeRateHandler.Delete)
@@ -177,7 +182,7 @@ func main() {
 	r.Route("/api/analytics", func(r chi.Router) {
 		r.Use(license.LicenseMiddleware(licenseChecker))
 		r.Use(auth.Middleware(cfg.JWTSecret))
-		r.Use(featureGate(cfg.AnalyticsEnabled))
+		r.Use(analyticsFeatureGate(licenseClient, cfg.AnalyticsEnabled))
 		r.Get("/portfolio", analyticsHandler.Portfolio)
 	})
 
@@ -198,10 +203,16 @@ func main() {
 	srv.Shutdown(shutdownCtx)
 }
 
-// featureGate returns middleware that blocks requests with 403 when the feature is disabled.
-func featureGate(enabled bool) func(http.Handler) http.Handler {
+// analyticsFeatureGate returns middleware that queries the SDK for the analytics_enabled
+// entitlement on each request. Falls back to the static config value if the SDK is unavailable.
+func analyticsFeatureGate(client *license.Client, fallback bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			enabled, err := client.AnalyticsEnabled(r.Context())
+			if err != nil {
+				log.Printf("license: failed to check analytics_enabled, using fallback (%v): %v", fallback, err)
+				enabled = fallback
+			}
 			if !enabled {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusForbidden)
