@@ -19,5 +19,7 @@ spec:
           type: '{{repl if eq Distribution "embedded-cluster" }}NodePort{{repl else }}LoadBalancer{{repl end }}'
           nodePorts:
             http: '{{repl if eq Distribution "embedded-cluster" }}30080{{repl else }}{{repl end }}'
+    backend:
+      analyticsEnabled: '{{repl LicenseFieldValue "analytics_enabled" }}'
     mailpit:
       enabled: true

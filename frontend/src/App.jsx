@@ -9,7 +9,7 @@ import Analytics from './pages/Analytics';
 import ExchangeRates from './pages/ExchangeRates';
 import LicenseExpired from './pages/LicenseExpired';
 import NavBar from './components/NavBar';
-import { checkForUpdates } from './api';
+import { checkForUpdates, getFeatures } from './api';
 import './App.css';
 
 function ProtectedRoute({ children }) {
@@ -20,14 +20,14 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
-function Layout({ children, updateAvailable }) {
+function Layout({ children, updateAvailable, analyticsEnabled }) {
   const location = useLocation();
   const publicPaths = ['/login', '/register', '/verify-email', '/license-expired'];
   const showNav = !publicPaths.includes(location.pathname);
 
   return (
     <>
-      {showNav && <NavBar updateAvailable={updateAvailable} />}
+      {showNav && <NavBar updateAvailable={updateAvailable} analyticsEnabled={analyticsEnabled} />}
       {children}
     </>
   );
@@ -35,16 +35,20 @@ function Layout({ children, updateAvailable }) {
 
 export default function App() {
   const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [analyticsEnabled, setAnalyticsEnabled] = useState(true);
 
   useEffect(() => {
     checkForUpdates().then((data) => {
       setUpdateAvailable(data.updatesAvailable);
     });
+    getFeatures().then((data) => {
+      setAnalyticsEnabled(data.analytics_enabled);
+    });
   }, []);
 
   return (
     <BrowserRouter>
-      <Layout updateAvailable={updateAvailable}>
+      <Layout updateAvailable={updateAvailable} analyticsEnabled={analyticsEnabled}>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />

@@ -47,6 +47,8 @@ spec:
                   key: jwt-secret
             - name: PORT
               value: {{ .Values.backend.port | quote }}
+            - name: ANALYTICS_ENABLED
+              value: {{ .Values.backend.analyticsEnabled | quote }}
             - name: REPLICATED_SDK_ENDPOINT
               value: {{ .Values.backend.metrics.sdkEndpoint | quote }}
             - name: METRICS_INTERVAL

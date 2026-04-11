@@ -171,3 +171,11 @@ export function fetchExchangeRates(baseCurrency) {
 export function getPortfolioAnalytics(currency) {
   return request(`/analytics/portfolio?currency=${encodeURIComponent(currency)}`);
 }
+
+export async function getFeatures() {
+  try {
+    return await request('/features');
+  } catch {
+    return { analytics_enabled: true };
+  }
+}
