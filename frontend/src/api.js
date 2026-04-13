@@ -186,3 +186,29 @@ export async function getFeatures() {
     return { analytics_enabled: true };
   }
 }
+
+export function createLinkToken(provider) {
+  return request('/banking/link-token', {
+    method: 'POST',
+    body: JSON.stringify({ provider }),
+  });
+}
+
+export function connectAccount(provider, token) {
+  return request('/banking/connect', {
+    method: 'POST',
+    body: JSON.stringify({ provider, token }),
+  });
+}
+
+export function listLinkedAccounts() {
+  return request('/banking/accounts');
+}
+
+export function syncAccounts() {
+  return request('/banking/accounts/sync', { method: 'POST' });
+}
+
+export function unlinkAccount(id) {
+  return request(`/banking/accounts/${id}`, { method: 'DELETE' });
+}
