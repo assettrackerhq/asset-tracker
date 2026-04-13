@@ -77,6 +77,20 @@ spec:
               value: {{ include "asset-tracker.fullname" . }}-backend
             - name: SUPPORT_BUNDLE_IMAGE_PULL_SECRETS
               value: {{ include "asset-tracker.imagePullSecretNames" . | quote }}
+            - name: PLAID_ENABLED
+              value: {{ .Values.backend.plaid.enabled | quote }}
+            - name: PLAID_CLIENT_ID
+              value: {{ .Values.backend.plaid.clientId | quote }}
+            - name: PLAID_SECRET
+              value: {{ .Values.backend.plaid.secret | quote }}
+            - name: PLAID_ENVIRONMENT
+              value: {{ .Values.backend.plaid.environment | quote }}
+            - name: TELLER_ENABLED
+              value: {{ .Values.backend.teller.enabled | quote }}
+            - name: TELLER_APPLICATION_ID
+              value: {{ .Values.backend.teller.applicationId | quote }}
+            - name: TELLER_ENVIRONMENT
+              value: {{ .Values.backend.teller.environment | quote }}
           resources:
             {{- toYaml .Values.backend.resources | nindent 12 }}
           readinessProbe:
