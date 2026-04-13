@@ -1,9 +1,9 @@
 package banking
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -117,7 +117,7 @@ func (h *Handler) Connect(w http.ResponseWriter, r *http.Request) {
 	linked := 0
 	for _, acct := range accounts {
 		assetID := fmt.Sprintf("%s-%s", source, acct.ExternalID)
-		_, err := h.db.Exec(context.Background(),
+		_, err := h.db.Exec(r.Context(),
 			`INSERT INTO assets (id, user_id, name, description, source, external_id, access_token, institution)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 ON CONFLICT (id, user_id) DO UPDATE SET
@@ -133,7 +133,7 @@ ON CONFLICT (id, user_id) DO UPDATE SET
 			return
 		}
 
-		_, err = h.db.Exec(context.Background(),
+		_, err = h.db.Exec(r.Context(),
 			`INSERT INTO asset_value_points (asset_id, user_id, value, currency, timestamp) VALUES ($1, $2, $3, $4, $5)`,
 			assetID, userID, acct.Balance, acct.Currency, time.Now(),
 		)
@@ -153,7 +153,7 @@ ON CONFLICT (id, user_id) DO UPDATE SET
 func (h *Handler) ListAccounts(w http.ResponseWriter, r *http.Request) {
 	userID := auth.GetUserID(r.Context())
 
-	rows, err := h.db.Query(context.Background(),
+	rows, err := h.db.Query(r.Context(),
 		`SELECT a.id, a.name, a.source, a.external_id, a.institution, a.updated_at,
        COALESCE(v.value, 0), COALESCE(v.currency, 'USD')
 FROM assets a
@@ -190,7 +190,7 @@ ORDER BY a.updated_at DESC`,
 func (h *Handler) SyncAccounts(w http.ResponseWriter, r *http.Request) {
 	userID := auth.GetUserID(r.Context())
 
-	rows, err := h.db.Query(context.Background(),
+	rows, err := h.db.Query(r.Context(),
 		`SELECT DISTINCT source, access_token FROM assets WHERE user_id = $1 AND source != 'manual' AND access_token IS NOT NULL`,
 		userID,
 	)
@@ -224,12 +224,13 @@ func (h *Handler) SyncAccounts(w http.ResponseWriter, r *http.Request) {
 
 		accounts, err := provider.FetchAccounts(r.Context(), pair.accessToken)
 		if err != nil {
+			log.Printf("banking: sync fetch error for %s: %v", pair.source, err)
 			continue
 		}
 
 		for _, acct := range accounts {
 			assetID := fmt.Sprintf("%s-%s", pair.source, acct.ExternalID)
-			_, err = h.db.Exec(context.Background(),
+			_, err = h.db.Exec(r.Context(),
 				`INSERT INTO asset_value_points (asset_id, user_id, value, currency, timestamp) VALUES ($1, $2, $3, $4, $5)`,
 				assetID, userID, acct.Balance, acct.Currency, time.Now(),
 			)
@@ -249,7 +250,7 @@ func (h *Handler) UnlinkAccount(w http.ResponseWriter, r *http.Request) {
 
 	// Verify asset exists and is not manual
 	var source string
-	err := h.db.QueryRow(context.Background(),
+	err := h.db.QueryRow(r.Context(),
 		`SELECT source FROM assets WHERE id = $1 AND user_id = $2`,
 		assetID, userID,
 	).Scan(&source)
@@ -264,7 +265,7 @@ func (h *Handler) UnlinkAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Delete value points first
-	_, err = h.db.Exec(context.Background(),
+	_, err = h.db.Exec(r.Context(),
 		`DELETE FROM asset_value_points WHERE asset_id = $1 AND user_id = $2`,
 		assetID, userID,
 	)
@@ -274,7 +275,7 @@ func (h *Handler) UnlinkAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Delete the asset
-	tag, err := h.db.Exec(context.Background(),
+	tag, err := h.db.Exec(r.Context(),
 		`DELETE FROM assets WHERE id = $1 AND user_id = $2 AND source != 'manual'`,
 		assetID, userID,
 	)

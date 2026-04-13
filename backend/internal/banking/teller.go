@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 )
 
@@ -65,6 +66,7 @@ func (t *TellerProvider) FetchAccounts(ctx context.Context, accessToken string) 
 	for _, ta := range tellerAccounts {
 		balance, err := t.fetchBalance(ctx, accessToken, ta.ID)
 		if err != nil {
+			log.Printf("teller: failed to fetch balance for account %s: %v", ta.ID, err)
 			balance = 0
 		}
 
