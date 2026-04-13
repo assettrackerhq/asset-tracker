@@ -17,6 +17,12 @@ spec:
               title: Embedded (recommended)
             - name: external
               title: External
+        - name: postgres_embedded_password
+          title: Embedded Database Password
+          type: password
+          hidden: true
+          value: '{{repl RandomString 32 }}'
+          when: '{{repl ConfigOptionEquals "postgres_type" "embedded" }}'
         - name: postgres_host
           title: Host
           type: text

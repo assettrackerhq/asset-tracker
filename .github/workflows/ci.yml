@@ -436,6 +436,7 @@ jobs:
           cp replicated/embedded-cluster-config.yaml release-v1/
           cp replicated/helmchart-asset-tracker.yaml release-v1/
           cp replicated/application.yaml release-v1/
+          cp replicated/config.yaml release-v1/
           sed -i "s/chartVersion: .*/chartVersion: $V1_VERSION/" release-v1/helmchart-asset-tracker.yaml
 
       - name: Create and promote v1 release

@@ -29,6 +29,9 @@ spec:
       values:
         postgresql:
           enabled: true
+          auth:
+            password: '{{repl ConfigOption "postgres_embedded_password" }}'
+            postgresPassword: '{{repl ConfigOption "postgres_embedded_password" }}'
     - when: '{{repl ConfigOptionEquals "postgres_type" "external" }}'
       recursiveMerge: true
       values:
