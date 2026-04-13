@@ -1,0 +1,46 @@
+apiVersion: kots.io/v1beta1
+kind: Config
+metadata:
+  name: asset-tracker
+spec:
+  groups:
+    - name: database
+      title: Database
+      description: Configure the PostgreSQL database for Asset Tracker.
+      items:
+        - name: postgres_type
+          title: PostgreSQL
+          type: select_one
+          default: embedded
+          items:
+            - name: embedded
+              title: Embedded (recommended)
+            - name: external
+              title: External
+        - name: postgres_host
+          title: Host
+          type: text
+          when: '{{repl ConfigOptionEquals "postgres_type" "external" }}'
+          required: true
+        - name: postgres_port
+          title: Port
+          type: text
+          default: "5432"
+          when: '{{repl ConfigOptionEquals "postgres_type" "external" }}'
+          required: true
+        - name: postgres_database
+          title: Database Name
+          type: text
+          default: "asset_tracker"
+          when: '{{repl ConfigOptionEquals "postgres_type" "external" }}'
+          required: true
+        - name: postgres_username
+          title: Username
+          type: text
+          when: '{{repl ConfigOptionEquals "postgres_type" "external" }}'
+          required: true
+        - name: postgres_password
+          title: Password
+          type: password
+          when: '{{repl ConfigOptionEquals "postgres_type" "external" }}'
+          required: true
