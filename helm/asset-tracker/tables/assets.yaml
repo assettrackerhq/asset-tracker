@@ -34,3 +34,14 @@ spec:
           default: "now()"
           constraints:
             notNull: true
+        - name: source
+          type: varchar(20)
+          default: "manual"
+          constraints:
+            notNull: true
+        - name: external_id
+          type: text
+        - name: access_token
+          type: text
+        - name: institution
+          type: text

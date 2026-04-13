@@ -52,6 +52,15 @@ backend:
     limits:
       cpu: 200m
       memory: 256Mi
+  plaid:
+    enabled: false
+    clientId: ""
+    secret: ""
+    environment: "sandbox"
+  teller:
+    enabled: false
+    applicationId: ""
+    environment: "sandbox"
 
 frontend:
   image:

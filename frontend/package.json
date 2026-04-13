@@ -12,8 +12,10 @@
   "dependencies": {
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "react-plaid-link": "^4.1.1",
     "react-router-dom": "^7.14.0",
-    "recharts": "^3.8.1"
+    "recharts": "^3.8.1",
+    "teller-connect-react": "^0.2.3"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",

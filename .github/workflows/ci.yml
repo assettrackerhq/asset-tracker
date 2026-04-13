@@ -138,6 +138,14 @@ jobs:
                 - name: enterprise-pull-secret
             mailpit:
               enabled: true
+            backend:
+              plaid:
+                enabled: true
+                clientId: "test_client_id"
+                secret: "test_secret"
+              teller:
+                enabled: true
+                applicationId: "test_app_id"
 
       - name: Expose port
         id: expose-port
@@ -1028,6 +1036,16 @@ jobs:
                 value: "asset_tracker"
               postgres_password:
                 value: "asset_tracker"
+              plaid_enabled:
+                value: "enabled"
+              plaid_client_id:
+                value: "test_client_id"
+              plaid_secret:
+                value: "test_secret"
+              teller_enabled:
+                value: "enabled"
+              teller_application_id:
+                value: "test_app_id"
           EOF
 
       - name: Copy files to VM

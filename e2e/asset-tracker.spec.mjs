@@ -423,4 +423,46 @@ test.describe.serial('Asset Tracker', () => {
       await expect(page.locator('button:has-text("Add Rate")')).toBeVisible();
     });
   });
+
+  test.describe('Linked Accounts', () => {
+    test('linked accounts nav link is visible when integrations are enabled', async ({ page }) => {
+      await page.goto(`${BASE_URL}/login`);
+      await page.locator('input[type="text"]').fill(username);
+      await page.locator('input[type="password"]').fill('TestPass123!');
+      await page.locator('button[type="submit"]').click();
+      await page.waitForURL('**/assets');
+
+      const navLink = page.locator('a[href="/linked-accounts"]');
+      await expect(navLink).toBeVisible();
+      await expect(navLink).toHaveText('Linked Accounts');
+    });
+
+    test('linked accounts page shows link buttons', async ({ page }) => {
+      await page.goto(`${BASE_URL}/login`);
+      await page.locator('input[type="text"]').fill(username);
+      await page.locator('input[type="password"]').fill('TestPass123!');
+      await page.locator('button[type="submit"]').click();
+      await page.waitForURL('**/assets');
+
+      await page.goto(`${BASE_URL}/linked-accounts`);
+      await expect(page.locator('h1')).toHaveText('Linked Accounts');
+
+      // At least one link button should be visible (Plaid, Teller, or both)
+      const plaidButton = page.locator('button:has-text("Link with Plaid")');
+      const tellerButton = page.locator('button:has-text("Link with Teller")');
+      const eitherVisible = await plaidButton.isVisible() || await tellerButton.isVisible();
+      expect(eitherVisible).toBeTruthy();
+    });
+
+    test('linked accounts table shows empty state', async ({ page }) => {
+      await page.goto(`${BASE_URL}/login`);
+      await page.locator('input[type="text"]').fill(username);
+      await page.locator('input[type="password"]').fill('TestPass123!');
+      await page.locator('button[type="submit"]').click();
+      await page.waitForURL('**/assets');
+
+      await page.goto(`${BASE_URL}/linked-accounts`);
+      await expect(page.locator('text=No linked accounts yet')).toBeVisible();
+    });
+  });
 });

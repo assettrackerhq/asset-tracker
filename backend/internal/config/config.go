@@ -22,6 +22,13 @@ type Config struct {
 	SupportBundleImage            string
 	SupportBundleServiceAccount   string
 	SupportBundleImagePullSecrets []string
+	PlaidEnabled        bool
+	PlaidClientID       string
+	PlaidSecret         string
+	PlaidEnvironment    string
+	TellerEnabled       bool
+	TellerApplicationID string
+	TellerEnvironment   string
 }
 
 func Load() (*Config, error) {
@@ -83,6 +90,26 @@ func Load() (*Config, error) {
 		}
 	}
 
+	plaidEnabled := false
+	if v := os.Getenv("PLAID_ENABLED"); v != "" {
+		plaidEnabled = strings.EqualFold(v, "true") || v == "1"
+	}
+
+	plaidEnvironment := os.Getenv("PLAID_ENVIRONMENT")
+	if plaidEnvironment == "" {
+		plaidEnvironment = "sandbox"
+	}
+
+	tellerEnabled := false
+	if v := os.Getenv("TELLER_ENABLED"); v != "" {
+		tellerEnabled = strings.EqualFold(v, "true") || v == "1"
+	}
+
+	tellerEnvironment := os.Getenv("TELLER_ENVIRONMENT")
+	if tellerEnvironment == "" {
+		tellerEnvironment = "sandbox"
+	}
+
 	return &Config{
 		DatabaseURL:           dbURL,
 		JWTSecret:             jwtSecret,
@@ -98,5 +125,12 @@ func Load() (*Config, error) {
 		SupportBundleImage:            sbImage,
 		SupportBundleServiceAccount:   sbServiceAccount,
 		SupportBundleImagePullSecrets: sbPullSecrets,
+		PlaidEnabled:        plaidEnabled,
+		PlaidClientID:       os.Getenv("PLAID_CLIENT_ID"),
+		PlaidSecret:         os.Getenv("PLAID_SECRET"),
+		PlaidEnvironment:    plaidEnvironment,
+		TellerEnabled:       tellerEnabled,
+		TellerApplicationID: os.Getenv("TELLER_APPLICATION_ID"),
+		TellerEnvironment:   tellerEnvironment,
 	}, nil
 }
