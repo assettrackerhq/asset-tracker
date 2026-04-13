@@ -1106,7 +1106,7 @@ jobs:
         env:
           BASE_URL: https://${{ steps.expose-port.outputs.hostname }}
           MAILPIT_URL: https://${{ steps.expose-port.outputs.hostname }}/mailpit
-        run: npx playwright test --config e2e/playwright.ec-external-postgres.config.mjs
+        run: npx playwright test
 
       - name: Upload Playwright report
         if: always()
