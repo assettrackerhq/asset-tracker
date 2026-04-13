@@ -442,11 +442,8 @@ test.describe.serial('Asset Tracker', () => {
       await page.goto('/linked-accounts');
       await expect(page.locator('h1')).toHaveText('Linked Accounts');
 
-      // At least one link button should be visible (Plaid, Teller, or both)
-      const plaidButton = page.locator('button:has-text("Link with Plaid")');
-      const tellerButton = page.locator('button:has-text("Link with Teller")');
-      const eitherVisible = await plaidButton.isVisible() || await tellerButton.isVisible();
-      expect(eitherVisible).toBeTruthy();
+      // Wait for at least one link button to appear (features load async)
+      await expect(page.locator('button:has-text("Link with Plaid"), button:has-text("Link with Teller")').first()).toBeVisible();
     });
 
     test('linked accounts table shows empty state', async ({ page }) => {
