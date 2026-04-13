@@ -13,6 +13,7 @@ import (
 	"github.com/assettrackerhq/asset-tracker/backend/internal/analytics"
 	"github.com/assettrackerhq/asset-tracker/backend/internal/assets"
 	"github.com/assettrackerhq/asset-tracker/backend/internal/auth"
+	"github.com/assettrackerhq/asset-tracker/backend/internal/banking"
 	"github.com/assettrackerhq/asset-tracker/backend/internal/exchangerates"
 	"github.com/assettrackerhq/asset-tracker/backend/internal/config"
 	"github.com/assettrackerhq/asset-tracker/backend/internal/database"
@@ -97,6 +98,24 @@ func main() {
 	licenseChecker.CheckNow(ctx)
 	go licenseChecker.Run(ctx)
 
+	// Banking providers
+	bankingProviders := map[string]banking.BankProvider{}
+	if cfg.PlaidEnabled {
+		bankingProviders["plaid"] = banking.NewPlaidProvider(cfg.PlaidClientID, cfg.PlaidSecret, cfg.PlaidEnvironment)
+		log.Println("banking: Plaid provider enabled")
+	}
+	if cfg.TellerEnabled {
+		bankingProviders["teller"] = banking.NewTellerProvider(cfg.TellerApplicationID, cfg.TellerEnvironment)
+		log.Println("banking: Teller provider enabled")
+	}
+	bankingHandler := banking.NewHandler(pool, bankingProviders)
+
+	// Start daily bank account sync if any providers are enabled
+	if len(bankingProviders) > 0 {
+		syncer := banking.NewSyncer(pool, bankingProviders)
+		go syncer.Run(ctx)
+	}
+
 	// Auth routes (protected by license check)
 	authHandler := auth.NewHandler(pool, cfg.JWTSecret, licenseClient, verifier)
 	r.Group(func(r chi.Router) {
@@ -140,10 +159,16 @@ func main() {
 				log.Printf("license: failed to check analytics_enabled, using default: %v", err)
 				enabled = cfg.AnalyticsEnabled
 			}
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(map[string]any{
+			features := map[string]any{
 				"analytics_enabled": enabled,
-			})
+				"plaid_enabled":     cfg.PlaidEnabled,
+				"teller_enabled":    cfg.TellerEnabled,
+			}
+			if cfg.TellerEnabled {
+				features["teller_application_id"] = cfg.TellerApplicationID
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(features)
 		})
 	})
 
@@ -184,6 +209,18 @@ func main() {
 		r.Use(auth.Middleware(cfg.JWTSecret))
 		r.Use(analyticsFeatureGate(licenseClient, cfg.AnalyticsEnabled))
 		r.Get("/portfolio", analyticsHandler.Portfolio)
+	})
+
+	// Banking routes (license + auth + banking feature gate)
+	r.Route("/api/banking", func(r chi.Router) {
+		r.Use(license.LicenseMiddleware(licenseChecker))
+		r.Use(auth.Middleware(cfg.JWTSecret))
+		r.Use(banking.BankingFeatureGate(bankingProviders))
+		r.Post("/link-token", bankingHandler.CreateLinkToken)
+		r.Post("/connect", bankingHandler.Connect)
+		r.Get("/accounts", bankingHandler.ListAccounts)
+		r.Post("/accounts/sync", bankingHandler.SyncAccounts)
+		r.Delete("/accounts/{id}", bankingHandler.UnlinkAccount)
 	})
 
 	addr := fmt.Sprintf(":%s", cfg.Port)
