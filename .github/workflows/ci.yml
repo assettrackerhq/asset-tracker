@@ -529,10 +529,26 @@ jobs:
           chmod 600 ~/.ssh/config
           chmod 600 ec-ci-key
 
-      - name: Copy license to VM
+      - name: Create config-values file
+        run: |
+          cat > config-values.yaml <<'EOF'
+          apiVersion: kots.io/v1beta1
+          kind: ConfigValues
+          metadata:
+            name: asset-tracker
+          spec:
+            values:
+              postgres_type:
+                value: "embedded"
+          EOF
+          sed -i 's/^          //' config-values.yaml
+
+      - name: Copy files to VM
         run: |
           scp -i ec-ci-key -P "${{ steps.ssh.outputs.port }}" \
             license.yaml "${{ steps.ssh.outputs.user }}@${{ steps.ssh.outputs.host }}:~/license.yaml"
+          scp -i ec-ci-key -P "${{ steps.ssh.outputs.port }}" \
+            config-values.yaml "${{ steps.ssh.outputs.user }}@${{ steps.ssh.outputs.host }}:~/config-values.yaml"
 
       - name: Install Embedded Cluster v1
         timeout-minutes: 15
@@ -547,6 +563,7 @@ jobs:
           tar xzf assettracker.tgz
           sudo ./assettracker install \
             --license ~/license.yaml \
+            --config-values ~/config-values.yaml \
             --headless \
             --installer-password changeme \
             --ignore-host-preflights \
