@@ -23,11 +23,20 @@ spec:
       analyticsEnabled: '{{repl LicenseFieldValue "analytics_enabled" }}'
     mailpit:
       enabled: true
-    postgresql:
-      enabled: '{{repl if ConfigOptionEquals "postgres_type" "external" }}false{{repl else }}true{{repl end }}'
-    externalDatabase:
-      host: '{{repl ConfigOption "postgres_host" }}'
-      port: '{{repl ConfigOption "postgres_port" }}'
-      database: '{{repl ConfigOption "postgres_database" }}'
-      username: '{{repl ConfigOption "postgres_username" }}'
-      password: '{{repl ConfigOption "postgres_password" }}'
+  optionalValues:
+    - when: '{{repl ConfigOptionEquals "postgres_type" "embedded" }}'
+      recursiveMerge: true
+      values:
+        postgresql:
+          enabled: true
+    - when: '{{repl ConfigOptionEquals "postgres_type" "external" }}'
+      recursiveMerge: true
+      values:
+        postgresql:
+          enabled: false
+        externalDatabase:
+          host: '{{repl ConfigOption "postgres_host" }}'
+          port: repl{{ ConfigOption "postgres_port" }}
+          database: '{{repl ConfigOption "postgres_database" }}'
+          username: '{{repl ConfigOption "postgres_username" }}'
+          password: '{{repl ConfigOption "postgres_password" }}'
