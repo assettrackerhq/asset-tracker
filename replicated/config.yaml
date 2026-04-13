@@ -34,6 +34,10 @@ spec:
           default: "5432"
           when: '{{repl ConfigOptionEquals "postgres_type" "external" }}'
           required: true
+          validation:
+            regex:
+              pattern: ^[0-9]{1,5}$
+              message: Port must be a number between 1 and 65535
         - name: postgres_database
           title: Database Name
           type: text
