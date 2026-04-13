@@ -36,7 +36,7 @@ spec:
             notNull: true
         - name: source
           type: varchar(20)
-          default: "'manual'"
+          default: "manual"
           constraints:
             notNull: true
         - name: external_id
