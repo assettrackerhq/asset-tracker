@@ -10,6 +10,7 @@ spec:
       items:
         - name: postgres_type
           title: PostgreSQL
+          help_text: Choose embedded to run PostgreSQL inside the cluster, or external to connect to a database you manage yourself.
           type: select_one
           default: embedded
           items:
@@ -25,11 +26,13 @@ spec:
           when: '{{repl ConfigOptionEquals "postgres_type" "embedded" }}'
         - name: postgres_host
           title: Host
+          help_text: Hostname or IP address of the external PostgreSQL server (e.g., "db.example.com" or "10.0.1.5").
           type: text
           when: '{{repl ConfigOptionEquals "postgres_type" "external" }}'
           required: true
         - name: postgres_port
           title: Port
+          help_text: TCP port the PostgreSQL server is listening on. The standard PostgreSQL port is 5432.
           type: text
           default: "5432"
           when: '{{repl ConfigOptionEquals "postgres_type" "external" }}'
@@ -40,17 +43,20 @@ spec:
               message: Port must be a number between 1 and 65535
         - name: postgres_database
           title: Database Name
+          help_text: Name of the database to use. It must already exist on the server (e.g., "asset_tracker").
           type: text
           default: "asset_tracker"
           when: '{{repl ConfigOptionEquals "postgres_type" "external" }}'
           required: true
         - name: postgres_username
           title: Username
+          help_text: PostgreSQL user with full read/write access to the database above.
           type: text
           when: '{{repl ConfigOptionEquals "postgres_type" "external" }}'
           required: true
         - name: postgres_password
           title: Password
+          help_text: Password for the PostgreSQL user.
           type: password
           when: '{{repl ConfigOptionEquals "postgres_type" "external" }}'
           required: true
@@ -60,7 +66,7 @@ spec:
       items:
         - name: plaid_enabled
           title: Plaid Integration
-          help_text: Enable Plaid to allow users to link bank accounts.
+          help_text: Plaid lets users securely link their bank accounts to view balances. Requires a Plaid API account (https://plaid.com).
           type: select_one
           default: disabled
           items:
@@ -70,17 +76,19 @@ spec:
               title: Enabled
         - name: plaid_client_id
           title: Plaid Client ID
+          help_text: Your Plaid client_id from the Plaid Dashboard → Keys page (e.g., "6123ab4c5d6e7f8a9b0c1d2e").
           type: text
           when: '{{repl ConfigOptionEquals "plaid_enabled" "enabled" }}'
           required: true
         - name: plaid_secret
           title: Plaid Secret
+          help_text: Your Plaid secret key from the Plaid Dashboard → Keys page. Use the sandbox key for testing or the production key for live data.
           type: password
           when: '{{repl ConfigOptionEquals "plaid_enabled" "enabled" }}'
           required: true
         - name: teller_enabled
           title: Teller Integration
-          help_text: Enable Teller to allow users to link bank accounts.
+          help_text: Teller lets users securely link their bank accounts to view balances. Requires a Teller API account (https://teller.io).
           type: select_one
           default: disabled
           items:
@@ -90,6 +98,7 @@ spec:
               title: Enabled
         - name: teller_application_id
           title: Teller Application ID
+          help_text: Your Teller application ID from the Teller Dashboard (e.g., "app_abc123def456").
           type: text
           when: '{{repl ConfigOptionEquals "teller_enabled" "enabled" }}'
           required: true
