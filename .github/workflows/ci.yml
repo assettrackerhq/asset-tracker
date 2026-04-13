@@ -1102,6 +1102,25 @@ jobs:
           echo ""
           echo "App is accessible!"
 
+      - name: Wait for license to be valid
+        timeout-minutes: 5
+        run: |
+          BASE_URL="https://${{ steps.expose-port.outputs.hostname }}"
+          echo "Waiting for license to sync..."
+          for i in $(seq 1 30); do
+            STATUS=$(curl -sk -o /dev/null -w "%{http_code}" "${BASE_URL}/api/auth/login" \
+              -X POST -H "Content-Type: application/json" \
+              -d '{"username":"probe","password":"probe"}')
+            if [ "$STATUS" != "403" ]; then
+              echo "License is valid (got $STATUS from login probe)"
+              exit 0
+            fi
+            echo "License not ready yet (attempt $i/30)"
+            sleep 10
+          done
+          echo "License did not become valid in time"
+          exit 1
+
       - name: Run Playwright tests
         env:
           BASE_URL: https://${{ steps.expose-port.outputs.hostname }}
