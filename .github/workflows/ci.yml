@@ -1008,8 +1008,10 @@ jobs:
           echo "VM internal IP: $VM_IP"
 
       - name: Create config-values file
+        env:
+          VM_IP: ${{ steps.vm-ip.outputs.ip }}
         run: |
-          cat > config-values.yaml << EOF
+          cat > config-values.yaml <<EOF
           apiVersion: kots.io/v1beta1
           kind: ConfigValues
           spec:
@@ -1017,7 +1019,7 @@ jobs:
               postgres_type:
                 value: "external"
               postgres_host:
-                value: "${{ steps.vm-ip.outputs.ip }}"
+                value: "${VM_IP}"
               postgres_port:
                 value: "5432"
               postgres_database:
