@@ -44,3 +44,42 @@ spec:
           type: password
           when: '{{repl ConfigOptionEquals "postgres_type" "external" }}'
           required: true
+    - name: integrations
+      title: Integrations
+      description: Configure optional third-party integrations for Asset Tracker.
+      items:
+        - name: plaid_enabled
+          title: Plaid Integration
+          help_text: Enable Plaid to allow users to link bank accounts.
+          type: select_one
+          default: disabled
+          items:
+            - name: disabled
+              title: Disabled
+            - name: enabled
+              title: Enabled
+        - name: plaid_client_id
+          title: Plaid Client ID
+          type: text
+          when: '{{repl ConfigOptionEquals "plaid_enabled" "enabled" }}'
+          required: true
+        - name: plaid_secret
+          title: Plaid Secret
+          type: password
+          when: '{{repl ConfigOptionEquals "plaid_enabled" "enabled" }}'
+          required: true
+        - name: teller_enabled
+          title: Teller Integration
+          help_text: Enable Teller to allow users to link bank accounts.
+          type: select_one
+          default: disabled
+          items:
+            - name: disabled
+              title: Disabled
+            - name: enabled
+              title: Enabled
+        - name: teller_application_id
+          title: Teller Application ID
+          type: text
+          when: '{{repl ConfigOptionEquals "teller_enabled" "enabled" }}'
+          required: true

@@ -40,3 +40,18 @@ spec:
           database: '{{repl ConfigOption "postgres_database" }}'
           username: '{{repl ConfigOption "postgres_username" }}'
           password: '{{repl ConfigOption "postgres_password" }}'
+    - when: '{{repl ConfigOptionEquals "plaid_enabled" "enabled" }}'
+      recursiveMerge: true
+      values:
+        backend:
+          plaid:
+            enabled: true
+            clientId: '{{repl ConfigOption "plaid_client_id" }}'
+            secret: '{{repl ConfigOption "plaid_secret" }}'
+    - when: '{{repl ConfigOptionEquals "teller_enabled" "enabled" }}'
+      recursiveMerge: true
+      values:
+        backend:
+          teller:
+            enabled: true
+            applicationId: '{{repl ConfigOption "teller_application_id" }}'
