@@ -23,3 +23,11 @@ spec:
       analyticsEnabled: '{{repl LicenseFieldValue "analytics_enabled" }}'
     mailpit:
       enabled: true
+    postgresql:
+      enabled: '{{repl if ConfigOptionEquals "postgres_type" "external" }}false{{repl else }}true{{repl end }}'
+    externalDatabase:
+      host: '{{repl ConfigOption "postgres_host" }}'
+      port: '{{repl ConfigOption "postgres_port" }}'
+      database: '{{repl ConfigOption "postgres_database" }}'
+      username: '{{repl ConfigOption "postgres_username" }}'
+      password: '{{repl ConfigOption "postgres_password" }}'
