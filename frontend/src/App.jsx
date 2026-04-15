@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -34,6 +34,37 @@ function Layout({ children, updateAvailable, analyticsEnabled, plaidEnabled, tel
   );
 }
 
+function AppContent({ updateAvailable, analyticsEnabled, plaidEnabled, tellerEnabled, tellerApplicationId, refreshFeatures }) {
+  const location = useLocation();
+
+  useEffect(() => {
+    if (localStorage.getItem('token')) {
+      refreshFeatures();
+    }
+  }, [location.pathname, refreshFeatures]);
+
+  return (
+    <Layout updateAvailable={updateAvailable} analyticsEnabled={analyticsEnabled} plaidEnabled={plaidEnabled} tellerEnabled={tellerEnabled}>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
+        <Route path="/license-expired" element={<LicenseExpired />} />
+        <Route path="/assets" element={<ProtectedRoute><AssetList /></ProtectedRoute>} />
+        <Route path="/assets/:id" element={<ProtectedRoute><AssetDetail /></ProtectedRoute>} />
+        <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
+        <Route path="/exchange-rates" element={<ProtectedRoute><ExchangeRates /></ProtectedRoute>} />
+        <Route path="/linked-accounts" element={
+          <ProtectedRoute>
+            <LinkedAccounts plaidEnabled={plaidEnabled} tellerEnabled={tellerEnabled} tellerApplicationId={tellerApplicationId} />
+          </ProtectedRoute>
+        } />
+        <Route path="*" element={<Navigate to="/assets" replace />} />
+      </Routes>
+    </Layout>
+  );
+}
+
 export default function App() {
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [analyticsEnabled, setAnalyticsEnabled] = useState(true);
@@ -45,6 +76,9 @@ export default function App() {
     checkForUpdates().then((data) => {
       setUpdateAvailable(data.updatesAvailable);
     });
+  }, []);
+
+  const refreshFeatures = useCallback(() => {
     getFeatures().then((data) => {
       setAnalyticsEnabled(data.analytics_enabled);
       setPlaidEnabled(data.plaid_enabled || false);
@@ -55,24 +89,14 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <Layout updateAvailable={updateAvailable} analyticsEnabled={analyticsEnabled} plaidEnabled={plaidEnabled} tellerEnabled={tellerEnabled}>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/verify-email" element={<VerifyEmail />} />
-          <Route path="/license-expired" element={<LicenseExpired />} />
-          <Route path="/assets" element={<ProtectedRoute><AssetList /></ProtectedRoute>} />
-          <Route path="/assets/:id" element={<ProtectedRoute><AssetDetail /></ProtectedRoute>} />
-          <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
-          <Route path="/exchange-rates" element={<ProtectedRoute><ExchangeRates /></ProtectedRoute>} />
-          <Route path="/linked-accounts" element={
-            <ProtectedRoute>
-              <LinkedAccounts plaidEnabled={plaidEnabled} tellerEnabled={tellerEnabled} tellerApplicationId={tellerApplicationId} />
-            </ProtectedRoute>
-          } />
-          <Route path="*" element={<Navigate to="/assets" replace />} />
-        </Routes>
-      </Layout>
+      <AppContent
+        updateAvailable={updateAvailable}
+        analyticsEnabled={analyticsEnabled}
+        plaidEnabled={plaidEnabled}
+        tellerEnabled={tellerEnabled}
+        tellerApplicationId={tellerApplicationId}
+        refreshFeatures={refreshFeatures}
+      />
     </BrowserRouter>
   );
 }
