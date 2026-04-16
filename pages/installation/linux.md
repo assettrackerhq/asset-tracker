@@ -1,0 +1,57 @@
+---
+title: Linux Installation
+visible_when:
+  entitlements:
+    - isEmbeddedClusterDownloadEnabled
+---
+
+# Linux Installation
+
+Install your application on a Linux server using Embedded Cluster. Read the docs or select your deployment preferences.
+
+## Requirements
+
+See the [system requirements documentation](requirements) for the full list of prerequisites. At minimum:
+
+- Ubuntu 20.04+ / RHEL 8+ / CentOS 8+
+- 4 CPUs, 8GB RAM, 40GB disk minimum
+- Root or sudo access
+
+## Configuration
+
+Customize the options below. The install commands will update automatically based on your selections.
+
+<NetworkAvailability installType="linux" />
+<VersionSelector installType="linux" />
+
+## Install
+
+<Warning>
+The install command must be run as root or with sudo. Running without elevated privileges will cause the installation to fail.
+</Warning>
+
+SSH into your target machine and run the following command.
+
+<LinuxInstallAssets />
+
+## Verify Installation
+
+<Tip title="Admin Console Access">
+The admin console URL is printed at the end of the installation. Bookmark it — you'll use it to manage updates, check status, and configure the application.
+</Tip>
+
+Once the installer completes, it will print the URL for the admin console. Open it in your browser to continue with application setup.
+
+<CommandBlock>
+# Check that all pods are running
+kubectl get pods -A
+
+# Access the admin console
+echo "Admin Console: https://$(hostname):8800"
+</CommandBlock>
+
+<InstanceName />
+
+## Post-Install
+
+See the post-installation documentation for next steps including configuring TLS, setting up backups, and connecting to your identity provider.
