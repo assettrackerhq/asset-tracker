@@ -45,6 +45,14 @@ navigation:
         page: pages/support/faq.md
       - title: Contact Support
         page: pages/support/contact.md
+  
+  - title: Reference
+    icon: book
+    items:
+      - title: Asset Tracker Chart
+        helm_chart:
+          name: asset-tracker
+
 
 overrides:
   home: pages/home.md
