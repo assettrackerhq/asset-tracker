@@ -42,14 +42,6 @@ The admin console URL is printed at the end of the installation. Bookmark it —
 
 Once the installer completes, it will print the URL for the admin console. Open it in your browser to continue with application setup.
 
-<CommandBlock>
-# Check that all pods are running
-kubectl get pods -A
-
-# Access the admin console
-echo "Admin Console: https://$(hostname):8800"
-</CommandBlock>
-
 <InstanceName />
 
 ## Post-Install
