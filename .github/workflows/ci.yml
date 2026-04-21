@@ -801,6 +801,19 @@ jobs:
             exit 1
           fi
           echo "network-id=$NETWORK_ID" >> "$GITHUB_OUTPUT"
+          SHORT_ID="${NETWORK_ID:0:8}"
+          for i in $(seq 1 60); do
+            STATUS=$(replicated network ls --output json | jq -r ".[] | select(.id == \"$SHORT_ID\") | .status")
+            echo "Network status: $STATUS (attempt $i/60)"
+            if [ "$STATUS" = "running" ]; then
+              break
+            fi
+            sleep 5
+          done
+          if [ "$STATUS" != "running" ]; then
+            echo "ERROR: Network did not reach running state in time"
+            exit 1
+          fi
           replicated network update "$NETWORK_ID" --policy airgap --collect-report
 
       - name: Parse SSH endpoint
@@ -889,10 +902,12 @@ jobs:
           echo "--- Network report ---"
           echo "$REPORT"
           echo "----------------------"
-          EVENT_COUNT=$(echo "$REPORT" | jq 'length')
-          if [ "$EVENT_COUNT" -gt 0 ]; then
-            echo "ERROR: Detected $EVENT_COUNT outbound network event(s) during airgap test"
-            exit 1
+          # "network report" emits JSON array on success, or a plain message when there are no events.
+          if EVENT_COUNT=$(echo "$REPORT" | jq 'length' 2>/dev/null); then
+            if [ "$EVENT_COUNT" -gt 0 ]; then
+              echo "ERROR: Detected $EVENT_COUNT outbound network event(s) during airgap test"
+              exit 1
+            fi
           fi
           echo "No outbound network connections detected - airgap verified"
 
