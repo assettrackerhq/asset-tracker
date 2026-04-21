@@ -791,6 +791,18 @@ jobs:
           echo "VM did not reach running state in time"
           exit 1
 
+      - name: Configure network for airgap and enable traffic reporting
+        id: configure-network
+        run: |
+          VM_ID="${{ steps.create-vm.outputs.vm-id }}"
+          NETWORK_ID=$(replicated vm ls --output json | jq -r ".[] | select(.id == \"$VM_ID\") | .network_id")
+          if [ -z "$NETWORK_ID" ] || [ "$NETWORK_ID" = "null" ]; then
+            echo "ERROR: Could not determine network ID for VM $VM_ID"
+            exit 1
+          fi
+          echo "network-id=$NETWORK_ID" >> "$GITHUB_OUTPUT"
+          replicated network update "$NETWORK_ID" --policy airgap --collect-report
+
       - name: Parse SSH endpoint
         id: ssh
         run: |
@@ -868,6 +880,21 @@ jobs:
           curl -sf --retry 5 --retry-delay 5 --max-time 10 -o /dev/null -w "%{http_code}" "${BASE_URL}/login"
           echo ""
           echo "App is accessible!"
+
+      - name: Verify no outbound network connections (airgap check)
+        run: |
+          NETWORK_ID="${{ steps.configure-network.outputs.network-id }}"
+          echo "Fetching network report for $NETWORK_ID..."
+          REPORT=$(replicated network report "$NETWORK_ID")
+          echo "--- Network report ---"
+          echo "$REPORT"
+          echo "----------------------"
+          EVENT_COUNT=$(echo "$REPORT" | jq 'length')
+          if [ "$EVENT_COUNT" -gt 0 ]; then
+            echo "ERROR: Detected $EVENT_COUNT outbound network event(s) during airgap test"
+            exit 1
+          fi
+          echo "No outbound network connections detected - airgap verified"
 
   # ─── Embedded Cluster External PostgreSQL Test ─────────────────────
   ec-external-postgres-test:
