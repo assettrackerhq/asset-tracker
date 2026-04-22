@@ -3,6 +3,9 @@ global:
     enabled: false
     domain: proxy.assettracker.tech
     appSlug: assettracker
+  localRegistry:
+    host: ""
+    namespace: ""
 
 postgresql:
   enabled: true

@@ -37,13 +37,22 @@ PostgreSQL port
 {{- end }}
 
 {{/*
-Proxy image helper - rewrites image refs through the Replicated proxy registry
+Proxy image helper - rewrites image refs for air gap (local registry) or
+through the Replicated proxy registry, otherwise returns the image unchanged.
+Precedence:
+  1. global.localRegistry.host + namespace set → air gap: LocalRegistryHost/LocalRegistryNamespace/<last-segment>:<tag>
+  2. global.proxy.enabled + domain + appSlug set → proxy.replicated.com/proxy/<appSlug>/<image>
+  3. otherwise → image as-is
 Usage: {{ include "asset-tracker.proxyImage" (dict "root" . "image" "docker.io/library/busybox:1.37") }}
 */}}
 {{- define "asset-tracker.proxyImage" -}}
 {{- $global := .root.Values.global | default dict -}}
+{{- $local := $global.localRegistry | default dict -}}
 {{- $proxy := $global.proxy | default dict -}}
-{{- if and (index $proxy "enabled") (index $proxy "domain") (index $proxy "appSlug") -}}
+{{- if and (index $local "host") (index $local "namespace") -}}
+{{- $last := .image | splitList "/" | last -}}
+{{ $local.host }}/{{ $local.namespace }}/{{ $last }}
+{{- else if and (index $proxy "enabled") (index $proxy "domain") (index $proxy "appSlug") -}}
 {{ $proxy.domain }}/proxy/{{ $proxy.appSlug }}/{{ .image }}
 {{- else -}}
 {{ .image }}
