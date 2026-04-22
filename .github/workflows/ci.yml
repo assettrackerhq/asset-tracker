@@ -902,14 +902,18 @@ jobs:
           echo "--- Network report ---"
           echo "$REPORT"
           echo "----------------------"
-          # "network report" emits JSON array on success, or a plain message when there are no events.
-          if EVENT_COUNT=$(echo "$REPORT" | jq 'length' 2>/dev/null); then
-            if [ "$EVENT_COUNT" -gt 0 ]; then
-              echo "ERROR: Detected $EVENT_COUNT outbound network event(s) during airgap test"
-              exit 1
-            fi
+          # The report is {"events": [...]}. Despite the CLI help saying "external traffic only",
+          # it includes local DNS/NTP to 127.x and the CMX network's internal resolver (10.0.0.10).
+          # Filter for real external traffic by excluding RFC 1918 private ranges, loopback, and link-local.
+          PRIVATE_RE='^(10\.|127\.|169\.254\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)'
+          EXTERNAL=$(echo "$REPORT" | jq --arg re "$PRIVATE_RE" '[(.events // [])[] | select((.dstIp // "" | test($re)) | not)]' 2>/dev/null || echo "[]")
+          EVENT_COUNT=$(echo "$EXTERNAL" | jq 'length')
+          if [ "$EVENT_COUNT" -gt 0 ]; then
+            echo "ERROR: Detected $EVENT_COUNT outbound network event(s) to external IPs during airgap test:"
+            echo "$EXTERNAL" | jq '.'
+            exit 1
           fi
-          echo "No outbound network connections detected - airgap verified"
+          echo "No outbound external network connections detected - airgap verified"
 
   # ─── Embedded Cluster External PostgreSQL Test ─────────────────────
   ec-external-postgres-test:
