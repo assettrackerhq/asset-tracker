@@ -9,16 +9,35 @@ spec:
   releaseName: asset-tracker
   weight: 20
   values:
+    global:
+      localRegistry:
+        host: '{{repl HasLocalRegistry | ternary LocalRegistryHost "" }}'
+        namespace: '{{repl HasLocalRegistry | ternary LocalRegistryNamespace "" }}'
     ingress:
       enabled: true
       className: nginx
     ingress-nginx:
       enabled: true
       controller:
+        image:
+          registry: '{{repl HasLocalRegistry | ternary LocalRegistryHost "registry.k8s.io" }}'
+          image: '{{repl HasLocalRegistry | ternary (printf "%s/controller" LocalRegistryNamespace) "ingress-nginx/controller" }}'
         service:
           type: '{{repl if eq Distribution "embedded-cluster" }}NodePort{{repl else }}LoadBalancer{{repl end }}'
           nodePorts:
             http: '{{repl if eq Distribution "embedded-cluster" }}30080{{repl else }}{{repl end }}'
+        admissionWebhooks:
+          patch:
+            image:
+              registry: '{{repl HasLocalRegistry | ternary LocalRegistryHost "registry.k8s.io" }}'
+              image: '{{repl HasLocalRegistry | ternary (printf "%s/kube-webhook-certgen" LocalRegistryNamespace) "ingress-nginx/kube-webhook-certgen" }}'
+    postgresql:
+      image:
+        repository: '{{repl HasLocalRegistry | ternary (printf "%s/%s/postgres" LocalRegistryHost LocalRegistryNamespace) "docker.io/library/postgres" }}'
+    replicated:
+      image:
+        registry: '{{repl HasLocalRegistry | ternary LocalRegistryHost "proxy.replicated.com" }}'
+        repository: '{{repl HasLocalRegistry | ternary (printf "%s/replicated-sdk-image" LocalRegistryNamespace) "library/replicated-sdk-image" }}'
     backend:
       analyticsEnabled: '{{repl LicenseFieldValue "analytics_enabled" }}'
     mailpit:
