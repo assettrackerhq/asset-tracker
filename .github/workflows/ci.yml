@@ -903,11 +903,12 @@ jobs:
           echo "$REPORT"
           echo "----------------------"
           # The report is {"events": [...]}. Despite the CLI help saying "external traffic only",
-          # it includes local DNS to 127.x and the CMX internal resolver (10.0.0.10), plus chronyd
-          # NTP traffic from the VM host to public NTP pools. Exclude RFC 1918 / loopback /
-          # link-local destinations AND NTP (port 123), which is a host service unrelated to the app.
-          PRIVATE_RE='^(10\.|127\.|169\.254\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)'
-          EXTERNAL=$(echo "$REPORT" | jq --arg re "$PRIVATE_RE" '[(.events // [])[] | select(((.dstIp // "" | test($re)) or (.dstPort == 123)) | not)]' 2>/dev/null || echo "[]")
+          # it includes host-level noise unrelated to the app: local DNS (127.x / CMX resolver
+          # 10.0.0.10), chronyd NTP to public pools, and IPv6 link-local/multicast chatter from
+          # k0s/containerd/kernel threads (fe80::/10, ff00::/8). Exclude RFC 1918 / loopback /
+          # link-local for both IPv4 and IPv6, plus NTP (port 123).
+          PRIVATE_RE='^(10\.|127\.|169\.254\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|fe[89ab][0-9a-f]:|ff[0-9a-f]{2}:|f[cd][0-9a-f]{0,2}:|::1$|::$)'
+          EXTERNAL=$(echo "$REPORT" | jq --arg re "$PRIVATE_RE" '[(.events // [])[] | select(((.dstIp // "" | test($re; "i")) or (.dstPort == 123)) | not)]' 2>/dev/null || echo "[]")
           EVENT_COUNT=$(echo "$EXTERNAL" | jq 'length')
           if [ "$EVENT_COUNT" -gt 0 ]; then
             echo "ERROR: Detected $EVENT_COUNT outbound network event(s) to external IPs during airgap test:"
