@@ -112,13 +112,17 @@ jobs:
           LICENSE_FILE: ${{ steps.create-customer.outputs.license-file }}
         run: printf '%s' "$LICENSE_FILE" > license.yaml
 
+      # The /embedded/<slug>/<channel> URL takes the customer-facing app
+      # slug, which may differ from the value held in the REPLICATED_APP_SLUG
+      # secret (used for Vendor API auth). Hardcode "assettracker" to match
+      # the ci.yml convention.
       - name: Download EC airgap installer bundle
         env:
           LICENSE_ID: ${{ steps.create-customer.outputs.license-id }}
           CHANNEL_SLUG: ${{ steps.create-channel.outputs.channel-slug }}
         run: |
           curl -fL -o assettracker.tgz \
-            "https://replicated.app/embedded/${APP_SLUG}/${CHANNEL_SLUG}?airgap=true" \
+            "https://replicated.app/embedded/assettracker/${CHANNEL_SLUG}?airgap=true" \
             -H "Authorization: $LICENSE_ID"
           ls -lh assettracker.tgz
 
