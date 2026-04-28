@@ -84,7 +84,7 @@ jobs:
 
       - name: Create release and wait for airgap build
         id: create-release
-        uses: replicatedhq/replicated-actions/create-release@v1
+        uses: replicatedhq/replicated-actions/create-release@v1.23.0
         with:
           app-slug: ${{ env.APP_SLUG }}
           api-token: ${{ env.REPLICATED_API_TOKEN }}
@@ -95,7 +95,7 @@ jobs:
 
       - name: Create customer with airgap entitlement
         id: create-customer
-        uses: replicatedhq/replicated-actions/create-customer@v1
+        uses: replicatedhq/replicated-actions/create-customer@v1.23.0
         with:
           app-slug: ${{ env.APP_SLUG }}
           api-token: ${{ env.REPLICATED_API_TOKEN }}
@@ -279,7 +279,7 @@ jobs:
 
       - name: Remove VM
         if: always()
-        uses: replicatedhq/replicated-actions/remove-vm@v1
+        uses: replicatedhq/replicated-actions/remove-vm@v1.23.0
         continue-on-error: true
         with:
           api-token: ${{ env.REPLICATED_API_TOKEN }}
@@ -287,7 +287,7 @@ jobs:
 
       - name: Archive customer
         if: always()
-        uses: replicatedhq/replicated-actions/archive-customer@v1
+        uses: replicatedhq/replicated-actions/archive-customer@v1.23.0
         continue-on-error: true
         with:
           app-slug: ${{ env.APP_SLUG }}
@@ -296,7 +296,7 @@ jobs:
 
       - name: Archive channel
         if: always()
-        uses: replicatedhq/replicated-actions/archive-channel@v1
+        uses: replicatedhq/replicated-actions/archive-channel@v1.23.0
         continue-on-error: true
         with:
           app-slug: ${{ env.APP_SLUG }}
