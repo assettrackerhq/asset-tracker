@@ -133,9 +133,13 @@ jobs:
         id: ssh-pub
         run: echo "key=$(cat ec-ci-key.pub)" >> "$GITHUB_OUTPUT"
 
+      # create-vm's network-id output and update-network/get-network-report
+      # are only on this PR branch in replicated-actions. Switch these three
+      # to @v1 once that PR (replicatedhq/replicated-actions#110) is merged
+      # and a new tag is cut.
       - name: Create VM
         id: create-vm
-        uses: replicatedhq/replicated-actions/create-vm@v1
+        uses: replicatedhq/replicated-actions/create-vm@joshd/sc-137000/no-github-actions-for-cmx-network-update
         with:
           api-token: ${{ env.REPLICATED_API_TOKEN }}
           distribution: ubuntu
@@ -148,7 +152,7 @@ jobs:
           timeout-minutes: "10"
 
       - name: Configure network for airgap and enable traffic reporting
-        uses: replicatedhq/replicated-actions/update-network@v1
+        uses: replicatedhq/replicated-actions/update-network@joshd/sc-137000/no-github-actions-for-cmx-network-update
         with:
           api-token: ${{ env.REPLICATED_API_TOKEN }}
           network-id: ${{ steps.create-vm.outputs.network-id }}
@@ -247,7 +251,7 @@ jobs:
           echo "App is accessible!"
 
       - name: Fetch network report (events)
-        uses: replicatedhq/replicated-actions/get-network-report@v1
+        uses: replicatedhq/replicated-actions/get-network-report@joshd/sc-137000/no-github-actions-for-cmx-network-update
         with:
           api-token: ${{ env.REPLICATED_API_TOKEN }}
           network-id: ${{ steps.create-vm.outputs.network-id }}
