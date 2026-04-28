@@ -64,6 +64,7 @@ jobs:
           if [ -z "$APP_ID" ] || [ "$APP_ID" = "null" ]; then
             echo "ERROR: unknown app slug $APP_SLUG"; exit 1
           fi
+          echo "app-id=$APP_ID" >> "$GITHUB_OUTPUT"
           CHANNEL=$(curl -fsS \
             -H "Authorization: ${REPLICATED_API_TOKEN}" \
             -H 'Content-Type: application/json' \
@@ -82,7 +83,12 @@ jobs:
             "${REPLICATED_API_ORIGIN}/app/${APP_ID}/channel/${CHANNEL_ID}" >/dev/null
           sleep 5
 
-      - name: Create release and wait for airgap build
+      # Don't use create-release's wait-for-airgap-build: the action polls
+      # GET /app/{id}/channel/{id}/releases which returns 403 with our
+      # token, so it silently gives up and the bundle isn't ready when
+      # we try to download. Poll the channel detail endpoint instead,
+      # mirroring ci.yml.
+      - name: Create and promote release
         id: create-release
         uses: replicatedhq/replicated-actions/create-release@v1.23.0
         with:
@@ -91,7 +97,32 @@ jobs:
           yaml-dir: release
           promote-channel: ${{ steps.create-channel.outputs.channel-slug }}
           version: ${{ env.APP_VERSION }}
-          wait-for-airgap-build: "true"
+
+      - name: Wait for airgap bundle to be built
+        env:
+          APP_ID: ${{ steps.create-channel.outputs.app-id }}
+          CHANNEL_ID: ${{ steps.create-channel.outputs.channel-id }}
+        run: |
+          set -euo pipefail
+          echo "Waiting for airgap build to complete..."
+          for i in $(seq 1 60); do
+            RESPONSE=$(curl -fsS \
+              -H "Authorization: ${REPLICATED_API_TOKEN}" \
+              "${REPLICATED_API_ORIGIN}/app/${APP_ID}/channel/${CHANNEL_ID}" || true)
+            AIRGAP_BUILD=$(echo "$RESPONSE" | jq -r '.channel.releases[0].airgapBuildStatus // empty')
+            echo "Airgap build status: $AIRGAP_BUILD (attempt $i/60)"
+            if [ "$AIRGAP_BUILD" = "built" ]; then
+              echo "Airgap build completed successfully"
+              exit 0
+            fi
+            if [ "$AIRGAP_BUILD" = "error" ] || [ "$AIRGAP_BUILD" = "failed" ]; then
+              echo "Airgap build failed"; echo "$RESPONSE" | jq '.channel.releases[0]'
+              exit 1
+            fi
+            sleep 30
+          done
+          echo "Airgap build did not complete in 30 minutes"
+          exit 1
 
       - name: Create customer with airgap entitlement
         id: create-customer
