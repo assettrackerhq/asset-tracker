@@ -1,0 +1,300 @@
+name: test - airgap (actions only)
+
+# Mirrors the "Embedded Cluster Air Gap Test" job in ci.yml, but uses
+# replicatedhq/replicated-actions instead of the Replicated CLI binary.
+# A few endpoints (channel airgap settings, VM SSH endpoint, VM port
+# expose) don't have dedicated GitHub Actions yet, so those are still
+# raw curl calls against the Vendor API. No replicated CLI is required.
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: test-airgap-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  APP_VERSION: 0.1.0-${{ github.run_id }}.${{ github.run_attempt }}
+  APP_SLUG: ${{ secrets.REPLICATED_APP_SLUG }}
+  REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
+  REPLICATED_API_ORIGIN: https://api.replicated.com/vendor/v3
+
+jobs:
+  ec-airgap-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Package Helm chart
+        run: |
+          helm repo add helmforge https://repo.helmforge.dev
+          helm repo add jetstack https://charts.jetstack.io
+          helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+          sed -i "s/^version:.*/version: ${APP_VERSION}/" helm/asset-tracker/Chart.yaml
+          helm dependency build helm/asset-tracker
+          helm package helm/asset-tracker --destination helm/
+
+      - name: Prepare release directory
+        run: |
+          mkdir -p release
+          cp helm/asset-tracker-*.tgz release/
+          cp replicated/embedded-cluster-config.yaml release/
+          cp replicated/helmchart-asset-tracker.yaml release/
+          cp replicated/application.yaml release/
+          cp replicated/config.yaml release/
+          sed -i "s/chartVersion: .*/chartVersion: ${APP_VERSION}/" release/helmchart-asset-tracker.yaml
+
+      # No action exists yet for "create channel + enable airgap auto-builds",
+      # so call the Vendor API directly. The channel must have airgap
+      # enabled BEFORE the release is promoted, otherwise no airgap bundle
+      # is produced.
+      - name: Create channel with airgap enabled
+        id: create-channel
+        env:
+          CHANNEL_NAME: ec-airgap-${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          APP_ID=$(curl -fsS \
+            -H "Authorization: ${REPLICATED_API_TOKEN}" \
+            "${REPLICATED_API_ORIGIN}/apps" \
+            | jq -r --arg slug "$APP_SLUG" '.apps[] | select(.slug == $slug) | .id')
+          if [ -z "$APP_ID" ] || [ "$APP_ID" = "null" ]; then
+            echo "ERROR: unknown app slug $APP_SLUG"; exit 1
+          fi
+          CHANNEL=$(curl -fsS \
+            -H "Authorization: ${REPLICATED_API_TOKEN}" \
+            -H 'Content-Type: application/json' \
+            -X POST \
+            -d "{\"name\":\"${CHANNEL_NAME}\"}" \
+            "${REPLICATED_API_ORIGIN}/app/${APP_ID}/channel")
+          CHANNEL_ID=$(echo "$CHANNEL" | jq -r '.channel.id')
+          CHANNEL_SLUG=$(echo "$CHANNEL" | jq -r '.channel.channelSlug')
+          echo "channel-id=$CHANNEL_ID" >> "$GITHUB_OUTPUT"
+          echo "channel-slug=$CHANNEL_SLUG" >> "$GITHUB_OUTPUT"
+          curl -fsS \
+            -H "Authorization: ${REPLICATED_API_TOKEN}" \
+            -H 'Content-Type: application/json' \
+            -X PATCH \
+            -d '{"autoAirgapBuildsValue": true, "airgapDockerRegistryFormatEnabled": true}' \
+            "${REPLICATED_API_ORIGIN}/app/${APP_ID}/channel/${CHANNEL_ID}" >/dev/null
+          sleep 5
+
+      - name: Create release and wait for airgap build
+        id: create-release
+        uses: replicatedhq/replicated-actions/create-release@v1
+        with:
+          app-slug: ${{ env.APP_SLUG }}
+          api-token: ${{ env.REPLICATED_API_TOKEN }}
+          yaml-dir: release
+          promote-channel: ${{ steps.create-channel.outputs.channel-slug }}
+          version: ${{ env.APP_VERSION }}
+          wait-for-airgap-build: "true"
+
+      - name: Create customer with airgap entitlement
+        id: create-customer
+        uses: replicatedhq/replicated-actions/create-customer@v1
+        with:
+          app-slug: ${{ env.APP_SLUG }}
+          api-token: ${{ env.REPLICATED_API_TOKEN }}
+          customer-name: ec-airgap-${{ github.run_id }}
+          customer-email: ec-airgap-${{ github.run_id }}@example.com
+          channel-slug: ${{ steps.create-channel.outputs.channel-slug }}
+          license-type: test
+          expires-in: "1"
+          is-airgap-enabled: "true"
+          is-embedded-cluster-download-enabled: "true"
+
+      - name: Save license to disk
+        env:
+          LICENSE_FILE: ${{ steps.create-customer.outputs.license-file }}
+        run: printf '%s' "$LICENSE_FILE" > license.yaml
+
+      - name: Download EC airgap installer bundle
+        env:
+          LICENSE_ID: ${{ steps.create-customer.outputs.license-id }}
+          CHANNEL_SLUG: ${{ steps.create-channel.outputs.channel-slug }}
+        run: |
+          curl -fL -o assettracker.tgz \
+            "https://replicated.app/embedded/${APP_SLUG}/${CHANNEL_SLUG}?airgap=true" \
+            -H "Authorization: $LICENSE_ID"
+          ls -lh assettracker.tgz
+
+      - name: Generate SSH key pair
+        id: ssh-key
+        run: |
+          ssh-keygen -t ed25519 -f ec-ci-key -N "" -q
+          SSH_USERNAME=$(awk '{print $3}' ec-ci-key.pub | cut -d'@' -f1)
+          echo "username=$SSH_USERNAME" >> "$GITHUB_OUTPUT"
+
+      - name: Read SSH public key
+        id: ssh-pub
+        run: echo "key=$(cat ec-ci-key.pub)" >> "$GITHUB_OUTPUT"
+
+      - name: Create VM
+        id: create-vm
+        uses: replicatedhq/replicated-actions/create-vm@v1
+        with:
+          api-token: ${{ env.REPLICATED_API_TOKEN }}
+          distribution: ubuntu
+          version: "22.04"
+          vm-name: ec-airgap-${{ github.run_id }}
+          disk: "100"
+          ttl: 2h
+          public-keys: |
+            - "${{ steps.ssh-pub.outputs.key }}"
+          timeout-minutes: "10"
+
+      - name: Configure network for airgap and enable traffic reporting
+        uses: replicatedhq/replicated-actions/update-network@v1
+        with:
+          api-token: ${{ env.REPLICATED_API_TOKEN }}
+          network-id: ${{ steps.create-vm.outputs.network-id }}
+          policy: airgap
+          collect-report: "true"
+
+      # No action exists for getting a VM's SSH endpoint. The CLI builds it
+      # client-side from GET /vm/{id}'s direct_ssh_endpoint + direct_ssh_port,
+      # so we do the same.
+      - name: Get VM SSH endpoint
+        id: ssh
+        env:
+          VM_ID: ${{ steps.create-vm.outputs.vm-id }}
+          SSH_USERNAME: ${{ steps.ssh-key.outputs.username }}
+        run: |
+          set -euo pipefail
+          VM_JSON=$(curl -fsS \
+            -H "Authorization: ${REPLICATED_API_TOKEN}" \
+            "${REPLICATED_API_ORIGIN}/vm/${VM_ID}")
+          SSH_HOST=$(echo "$VM_JSON" | jq -r '.vm.direct_ssh_endpoint')
+          SSH_PORT=$(echo "$VM_JSON" | jq -r '.vm.direct_ssh_port')
+          if [ -z "$SSH_HOST" ] || [ "$SSH_HOST" = "null" ] || [ -z "$SSH_PORT" ] || [ "$SSH_PORT" = "null" ]; then
+            echo "ERROR: VM $VM_ID has no direct SSH endpoint"; echo "$VM_JSON"; exit 1
+          fi
+          echo "user=$SSH_USERNAME" >> "$GITHUB_OUTPUT"
+          echo "host=$SSH_HOST" >> "$GITHUB_OUTPUT"
+          echo "port=$SSH_PORT" >> "$GITHUB_OUTPUT"
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf 'StrictHostKeyChecking no\nUserKnownHostsFile /dev/null\n' >> ~/.ssh/config
+          chmod 600 ~/.ssh/config
+          chmod 600 ec-ci-key
+
+      - name: Transfer files to VM
+        run: |
+          scp -i ec-ci-key -P "${{ steps.ssh.outputs.port }}" \
+            license.yaml assettracker.tgz \
+            "${{ steps.ssh.outputs.user }}@${{ steps.ssh.outputs.host }}:~/"
+
+      - name: Install Embedded Cluster (airgap)
+        timeout-minutes: 20
+        run: |
+          ssh -i ec-ci-key -p "${{ steps.ssh.outputs.port }}" \
+            "${{ steps.ssh.outputs.user }}@${{ steps.ssh.outputs.host }}" << 'INSTALL_SCRIPT'
+          set -euo pipefail
+          tar xzf ~/assettracker.tgz
+          sudo ./assettracker install \
+            --license ~/license.yaml \
+            --airgap assets/assettracker.airgap \
+            --headless \
+            --installer-password changeme \
+            --ignore-host-preflights \
+            --yes
+          INSTALL_SCRIPT
+
+      - name: Verify all pods are Running
+        timeout-minutes: 5
+        run: |
+          ssh -i ec-ci-key -p "${{ steps.ssh.outputs.port }}" \
+            "${{ steps.ssh.outputs.user }}@${{ steps.ssh.outputs.host }}" << 'VERIFY_SCRIPT'
+          set -euo pipefail
+          sudo assettracker shell -c "k0s kubectl wait --for=condition=ready pods --all --all-namespaces --field-selector=status.phase!=Succeeded --timeout=300s"
+          echo "--- Final pod status ---"
+          sudo assettracker shell -c "k0s kubectl get pods -A"
+          VERIFY_SCRIPT
+
+      # No action exists for "expose port on a VM" (the existing expose-port
+      # action is cluster-only). Call the Vendor API directly.
+      - name: Expose app port on VM
+        id: expose-port
+        env:
+          VM_ID: ${{ steps.create-vm.outputs.vm-id }}
+        run: |
+          set -euo pipefail
+          OUTPUT=$(curl -fsS \
+            -H "Authorization: ${REPLICATED_API_TOKEN}" \
+            -H 'Content-Type: application/json' \
+            -X POST \
+            -d '{"port":30080,"protocols":["https"]}' \
+            "${REPLICATED_API_ORIGIN}/vm/${VM_ID}/port")
+          HOSTNAME=$(echo "$OUTPUT" | jq -r '.port.hostname')
+          if [ -z "$HOSTNAME" ] || [ "$HOSTNAME" = "null" ]; then
+            echo "ERROR: Could not determine hostname"; echo "$OUTPUT"; exit 1
+          fi
+          echo "hostname=$HOSTNAME" >> "$GITHUB_OUTPUT"
+
+      - name: Verify app is accessible
+        run: |
+          BASE_URL="https://${{ steps.expose-port.outputs.hostname }}"
+          echo "Testing health endpoint..."
+          curl -sf --retry 10 --retry-delay 5 --max-time 10 "${BASE_URL}/api/health"
+          echo ""
+          echo "Testing login page..."
+          curl -sf --retry 5 --retry-delay 5 --max-time 10 -o /dev/null -w "%{http_code}" "${BASE_URL}/login"
+          echo ""
+          echo "App is accessible!"
+
+      - name: Fetch network report (events)
+        uses: replicatedhq/replicated-actions/get-network-report@v1
+        with:
+          api-token: ${{ env.REPLICATED_API_TOKEN }}
+          network-id: ${{ steps.create-vm.outputs.network-id }}
+          mode: events
+          events-file-path: ./network-events.json
+
+      - name: Verify no outbound network connections (airgap check)
+        run: |
+          REPORT=$(cat ./network-events.json)
+          echo "--- Network report ---"
+          echo "$REPORT"
+          echo "----------------------"
+          # The action returns the events array directly. Filter out
+          # private/loopback/link-local/multicast IPs and NTP (port 123),
+          # same as ci.yml.
+          PRIVATE_RE='^(10\.|127\.|169\.254\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|fe[89ab][0-9a-f]:|ff[0-9a-f]{2}:|f[cd][0-9a-f]{0,2}:|::1$|::$)'
+          EXTERNAL=$(echo "$REPORT" | jq --arg re "$PRIVATE_RE" '[ .[] | select(((.dstIp // "" | test($re; "i")) or (.dstPort == 123)) | not) ]')
+          EVENT_COUNT=$(echo "$EXTERNAL" | jq 'length')
+          if [ "$EVENT_COUNT" -gt 0 ]; then
+            echo "ERROR: Detected $EVENT_COUNT outbound network event(s) to external IPs during airgap test:"
+            echo "$EXTERNAL" | jq '.'
+            exit 1
+          fi
+          echo "No outbound external network connections detected - airgap verified"
+
+      - name: Remove VM
+        if: always()
+        uses: replicatedhq/replicated-actions/remove-vm@v1
+        continue-on-error: true
+        with:
+          api-token: ${{ env.REPLICATED_API_TOKEN }}
+          vm-id: ${{ steps.create-vm.outputs.vm-id }}
+
+      - name: Archive customer
+        if: always()
+        uses: replicatedhq/replicated-actions/archive-customer@v1
+        continue-on-error: true
+        with:
+          app-slug: ${{ env.APP_SLUG }}
+          api-token: ${{ env.REPLICATED_API_TOKEN }}
+          customer-id: ${{ steps.create-customer.outputs.customer-id }}
+
+      - name: Archive channel
+        if: always()
+        uses: replicatedhq/replicated-actions/archive-channel@v1
+        continue-on-error: true
+        with:
+          app-slug: ${{ env.APP_SLUG }}
+          api-token: ${{ env.REPLICATED_API_TOKEN }}
+          channel-slug: ${{ steps.create-channel.outputs.channel-slug }}
