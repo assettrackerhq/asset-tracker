@@ -10,6 +10,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
+  APP_VERSION: 0.1.0-${{ github.run_id }}.${{ github.run_attempt }}
   APP_SLUG: ${{ secrets.REPLICATED_APP_SLUG }}
   REPLICATED_API_TOKEN: ${{ secrets.REPLICATED_API_TOKEN }}
 
@@ -19,13 +20,8 @@ jobs:
     outputs:
       channel-slug: ${{ steps.create-release.outputs.channel-slug }}
       release-sequence: ${{ steps.create-release.outputs.release-sequence }}
-      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Compute version
-        id: version
-        run: echo "version=0.1.0+${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
       - name: Install Helm
         uses: azure/setup-helm@v4
@@ -36,7 +32,7 @@ jobs:
           helm repo add helmforge https://repo.helmforge.dev
           helm repo add jetstack https://charts.jetstack.io
           helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
-          sed -i "s/^version:.*/version: ${{ steps.version.outputs.version }}/" helm/asset-tracker/Chart.yaml
+          sed -i "s/^version:.*/version: ${{ env.APP_VERSION }}/" helm/asset-tracker/Chart.yaml
           helm dependency build helm/asset-tracker
           helm package helm/asset-tracker --destination helm/
           echo "chart=$(ls helm/asset-tracker-*.tgz)" >> "$GITHUB_OUTPUT"
@@ -49,7 +45,7 @@ jobs:
           cp replicated/helmchart-asset-tracker.yaml release/
           cp replicated/application.yaml release/
           cp replicated/config.yaml release/
-          sed -i "s/chartVersion: .*/chartVersion: ${{ steps.version.outputs.version }}/" release/helmchart-asset-tracker.yaml
+          sed -i "s/chartVersion: .*/chartVersion: ${{ env.APP_VERSION }}/" release/helmchart-asset-tracker.yaml
 
       - name: Create release
         id: create-release
@@ -59,7 +55,7 @@ jobs:
           api-token: ${{ env.REPLICATED_API_TOKEN }}
           yaml-dir: release
           promote-channel: ci-${{ github.run_id }}
-          version: ${{ steps.version.outputs.version }}
+          version: ${{ env.APP_VERSION }}
 
       - name: Upload chart artifact
         uses: actions/upload-artifact@v4
@@ -111,7 +107,7 @@ jobs:
           registry-password: ${{ steps.create-customer.outputs.license-id }}
           chart: oci://registry.replicated.com/${{ env.APP_SLUG }}/${{ needs.create-release.outputs.channel-slug }}/asset-tracker
           name: asset-tracker
-          version: ${{ needs.create-release.outputs.version }}
+          version: ${{ env.APP_VERSION }}
           namespace: default
           values: |
             global:
@@ -235,7 +231,7 @@ jobs:
             --app "$APP_SLUG" \
             "${{ needs.create-release.outputs.release-sequence }}" \
             "ec-${{ github.run_id }}" \
-            --version "${{ needs.create-release.outputs.version }}"
+            --version "${{ env.APP_VERSION }}"
 
       - name: Create customer with Embedded Cluster entitlement
         id: create-customer
@@ -431,7 +427,7 @@ jobs:
           helm repo add helmforge https://repo.helmforge.dev
           helm repo add jetstack https://charts.jetstack.io
           helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
-          V1_VERSION="${{ needs.create-release.outputs.version }}-v1"
+          V1_VERSION="${{ env.APP_VERSION }}-v1"
           sed -i "s/^version:.*/version: $V1_VERSION/" helm/asset-tracker/Chart.yaml
           helm dependency build helm/asset-tracker
           helm package helm/asset-tracker --destination helm/
@@ -450,7 +446,7 @@ jobs:
           api-token: ${{ env.REPLICATED_API_TOKEN }}
           yaml-dir: release-v1
           promote-channel: ec-upgrade-${{ github.run_id }}
-          version: ${{ needs.create-release.outputs.version }}-v1
+          version: ${{ env.APP_VERSION }}-v1
 
       - name: Create customer
         id: create-customer
@@ -612,7 +608,7 @@ jobs:
             --app "$APP_SLUG" \
             "${{ needs.create-release.outputs.release-sequence }}" \
             "ec-upgrade-${{ github.run_id }}" \
-            --version "${{ needs.create-release.outputs.version }}"
+            --version "${{ env.APP_VERSION }}"
 
       - name: Upgrade Embedded Cluster to v2
         timeout-minutes: 15
@@ -704,7 +700,7 @@ jobs:
             --app "$APP_SLUG" \
             "${{ needs.create-release.outputs.release-sequence }}" \
             "ec-airgap-${{ github.run_id }}" \
-            --version "${{ needs.create-release.outputs.version }}"
+            --version "${{ env.APP_VERSION }}"
           # Wait for airgap build to complete
           APP_ID=$(replicated app ls --output json | jq -r ".[] | select(.app.slug == \"$APP_SLUG\") | .app.id")
           CHANNEL_ID="${{ steps.create-channel.outputs.channel-id }}"
@@ -967,7 +963,7 @@ jobs:
             --app "$APP_SLUG" \
             "${{ needs.create-release.outputs.release-sequence }}" \
             "ec-extpg-${{ github.run_id }}" \
-            --version "${{ needs.create-release.outputs.version }}"
+            --version "${{ env.APP_VERSION }}"
 
       - name: Create customer with Embedded Cluster entitlement
         id: create-customer
@@ -1235,7 +1231,7 @@ jobs:
           api-token: ${{ env.REPLICATED_API_TOKEN }}
           channel-to: unstable
           release-sequence: ${{ needs.create-release.outputs.release-sequence }}
-          release-version: ${{ needs.create-release.outputs.version }}
+          release-version: ${{ env.APP_VERSION }}
 
   # ─── Cleanup ──────────────────────────────────────────────────────
   cleanup:
