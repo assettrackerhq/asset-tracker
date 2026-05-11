@@ -1,0 +1,5 @@
+appSlug: assettracker
+charts:
+  - path: helm/asset-tracker
+manifests:
+  - replicated/*.yaml
