@@ -219,7 +219,7 @@ jobs:
           echo "App is accessible!"
 
       - name: Fetch network report (events)
-        uses: replicatedhq/replicated-actions/get-network-report@joshd/sc-137000/no-github-actions-for-cmx-network-update
+        uses: replicatedhq/replicated-actions/get-network-report@v1.24.0
         with:
           api-token: ${{ env.REPLICATED_API_TOKEN }}
           network-id: ${{ steps.create-vm.outputs.network-id }}
