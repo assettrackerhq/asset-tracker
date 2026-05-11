@@ -2,9 +2,8 @@ name: test - airgap (actions only)
 
 # Mirrors the "Embedded Cluster Air Gap Test" job in ci.yml, but uses
 # replicatedhq/replicated-actions instead of the Replicated CLI binary.
-# A few endpoints (channel airgap settings, VM SSH endpoint, VM port
-# expose) don't have dedicated GitHub Actions yet, so those are still
-# raw curl calls against the Vendor API. No replicated CLI is required.
+# The channel Docker registry format setting still requires a raw curl
+# call against the Vendor API. No replicated CLI is required.
 
 on:
   workflow_dispatch:
@@ -47,44 +46,18 @@ jobs:
           cp replicated/config.yaml release/
           sed -i "s/chartVersion: .*/chartVersion: ${APP_VERSION}/" release/helmchart-asset-tracker.yaml
 
-      # No action exists yet for "create channel + enable airgap auto-builds",
-      # so call the Vendor API directly. The channel must have airgap
-      # enabled BEFORE the release is promoted, otherwise no airgap bundle
-      # is produced.
       - name: Create channel with airgap enabled
         id: create-channel
-        env:
-          CHANNEL_NAME: ec-airgap-${{ github.run_id }}
-        run: |
-          set -euo pipefail
-          APP_ID=$(curl -fsS \
-            -H "Authorization: ${REPLICATED_API_TOKEN}" \
-            "${REPLICATED_API_ORIGIN}/apps" \
-            | jq -r --arg slug "$APP_SLUG" '.apps[] | select(.slug == $slug) | .id')
-          if [ -z "$APP_ID" ] || [ "$APP_ID" = "null" ]; then
-            echo "ERROR: unknown app slug $APP_SLUG"; exit 1
-          fi
-          CHANNEL=$(curl -fsS \
-            -H "Authorization: ${REPLICATED_API_TOKEN}" \
-            -H 'Content-Type: application/json' \
-            -X POST \
-            -d "{\"name\":\"${CHANNEL_NAME}\"}" \
-            "${REPLICATED_API_ORIGIN}/app/${APP_ID}/channel")
-          CHANNEL_ID=$(echo "$CHANNEL" | jq -r '.channel.id')
-          CHANNEL_SLUG=$(echo "$CHANNEL" | jq -r '.channel.channelSlug')
-          echo "channel-id=$CHANNEL_ID" >> "$GITHUB_OUTPUT"
-          echo "channel-slug=$CHANNEL_SLUG" >> "$GITHUB_OUTPUT"
-          curl -fsS \
-            -H "Authorization: ${REPLICATED_API_TOKEN}" \
-            -H 'Content-Type: application/json' \
-            -X PATCH \
-            -d '{"autoAirgapBuildsValue": true, "airgapDockerRegistryFormatEnabled": true}' \
-            "${REPLICATED_API_ORIGIN}/app/${APP_ID}/channel/${CHANNEL_ID}" >/dev/null
-          sleep 5
+        uses: replicatedhq/replicated-actions/create-channel@joshd/sc-137113/catch-all-close-remaining-gh-actions-cmx
+        with:
+          api-token: ${{ env.REPLICATED_API_TOKEN }}
+          app-slug: ${{ env.APP_SLUG }}
+          channel-name: ec-airgap-${{ github.run_id }}
+          build-airgap-automatically: "true"
 
       - name: Create release and wait for airgap build
         id: create-release
-        uses: replicatedhq/replicated-actions/create-release@v1.23.0
+        uses: replicatedhq/replicated-actions/create-release@v1.24.0
         with:
           app-slug: ${{ env.APP_SLUG }}
           api-token: ${{ env.REPLICATED_API_TOKEN }}
@@ -95,7 +68,7 @@ jobs:
 
       - name: Create customer with airgap entitlement
         id: create-customer
-        uses: replicatedhq/replicated-actions/create-customer@v1.23.0
+        uses: replicatedhq/replicated-actions/create-customer@v1.24.0
         with:
           app-slug: ${{ env.APP_SLUG }}
           api-token: ${{ env.REPLICATED_API_TOKEN }}
@@ -143,7 +116,7 @@ jobs:
       # and a new tag is cut.
       - name: Create VM
         id: create-vm
-        uses: replicatedhq/replicated-actions/create-vm@joshd/sc-137000/no-github-actions-for-cmx-network-update
+        uses: replicatedhq/replicated-actions/create-vm@v1.24.0
         with:
           api-token: ${{ env.REPLICATED_API_TOKEN }}
           distribution: ubuntu
@@ -156,32 +129,34 @@ jobs:
           timeout-minutes: "10"
 
       - name: Configure network for airgap and enable traffic reporting
-        uses: replicatedhq/replicated-actions/update-network@joshd/sc-137000/no-github-actions-for-cmx-network-update
+        uses: replicatedhq/replicated-actions/update-network@v1.24.0
         with:
           api-token: ${{ env.REPLICATED_API_TOKEN }}
           network-id: ${{ steps.create-vm.outputs.network-id }}
           policy: airgap
           collect-report: "true"
 
-      # No action exists for getting a VM's SSH endpoint. The CLI builds it
-      # client-side from GET /vm/{id}'s direct_ssh_endpoint + direct_ssh_port,
-      # so we do the same.
       - name: Get VM SSH endpoint
+        id: get-ssh
+        uses: replicatedhq/replicated-actions/get-vm-ssh-endpoint@joshd/sc-137113/catch-all-close-remaining-gh-actions-cmx
+        with:
+          api-token: ${{ env.REPLICATED_API_TOKEN }}
+          vm-id: ${{ steps.create-vm.outputs.vm-id }}
+          username: ${{ steps.ssh-key.outputs.username }}
+
+      - name: Parse SSH endpoint and configure SSH
         id: ssh
         env:
-          VM_ID: ${{ steps.create-vm.outputs.vm-id }}
-          SSH_USERNAME: ${{ steps.ssh-key.outputs.username }}
+          SSH_ENDPOINT: ${{ steps.get-ssh.outputs.ssh-endpoint }}
         run: |
           set -euo pipefail
-          VM_JSON=$(curl -fsS \
-            -H "Authorization: ${REPLICATED_API_TOKEN}" \
-            "${REPLICATED_API_ORIGIN}/vm/${VM_ID}")
-          SSH_HOST=$(echo "$VM_JSON" | jq -r '.vm.direct_ssh_endpoint')
-          SSH_PORT=$(echo "$VM_JSON" | jq -r '.vm.direct_ssh_port')
-          if [ -z "$SSH_HOST" ] || [ "$SSH_HOST" = "null" ] || [ -z "$SSH_PORT" ] || [ "$SSH_PORT" = "null" ]; then
-            echo "ERROR: VM $VM_ID has no direct SSH endpoint"; echo "$VM_JSON"; exit 1
+          SSH_PORT=$(echo "$SSH_ENDPOINT" | sed -n 's/.*-p \([0-9]*\).*/\1/p')
+          SSH_USER=$(echo "$SSH_ENDPOINT" | sed -n 's/.* \([^ ]*\)@.*/\1/p')
+          SSH_HOST=$(echo "$SSH_ENDPOINT" | sed -n 's/.*@\(.*\)/\1/p')
+          if [ -z "$SSH_PORT" ] || [ -z "$SSH_USER" ] || [ -z "$SSH_HOST" ]; then
+            echo "ERROR: could not parse SSH endpoint: $SSH_ENDPOINT"; exit 1
           fi
-          echo "user=$SSH_USERNAME" >> "$GITHUB_OUTPUT"
+          echo "user=$SSH_USER" >> "$GITHUB_OUTPUT"
           echo "host=$SSH_HOST" >> "$GITHUB_OUTPUT"
           echo "port=$SSH_PORT" >> "$GITHUB_OUTPUT"
           mkdir -p ~/.ssh
@@ -223,25 +198,14 @@ jobs:
           sudo assettracker shell -c "k0s kubectl get pods -A"
           VERIFY_SCRIPT
 
-      # No action exists for "expose port on a VM" (the existing expose-port
-      # action is cluster-only). Call the Vendor API directly.
       - name: Expose app port on VM
         id: expose-port
-        env:
-          VM_ID: ${{ steps.create-vm.outputs.vm-id }}
-        run: |
-          set -euo pipefail
-          OUTPUT=$(curl -fsS \
-            -H "Authorization: ${REPLICATED_API_TOKEN}" \
-            -H 'Content-Type: application/json' \
-            -X POST \
-            -d '{"port":30080,"protocols":["https"]}' \
-            "${REPLICATED_API_ORIGIN}/vm/${VM_ID}/port")
-          HOSTNAME=$(echo "$OUTPUT" | jq -r '.port.hostname')
-          if [ -z "$HOSTNAME" ] || [ "$HOSTNAME" = "null" ]; then
-            echo "ERROR: Could not determine hostname"; echo "$OUTPUT"; exit 1
-          fi
-          echo "hostname=$HOSTNAME" >> "$GITHUB_OUTPUT"
+        uses: replicatedhq/replicated-actions/expose-port@joshd/sc-137113/catch-all-close-remaining-gh-actions-cmx
+        with:
+          api-token: ${{ env.REPLICATED_API_TOKEN }}
+          vm-id: ${{ steps.create-vm.outputs.vm-id }}
+          port: "30080"
+          protocols: https
 
       - name: Verify app is accessible
         run: |
@@ -283,7 +247,7 @@ jobs:
 
       - name: Remove VM
         if: always()
-        uses: replicatedhq/replicated-actions/remove-vm@v1.23.0
+        uses: replicatedhq/replicated-actions/remove-vm@v1.24.0
         continue-on-error: true
         with:
           api-token: ${{ env.REPLICATED_API_TOKEN }}
@@ -291,7 +255,7 @@ jobs:
 
       - name: Archive customer
         if: always()
-        uses: replicatedhq/replicated-actions/archive-customer@v1.23.0
+        uses: replicatedhq/replicated-actions/archive-customer@v1.24.0
         continue-on-error: true
         with:
           app-slug: ${{ env.APP_SLUG }}
@@ -300,7 +264,7 @@ jobs:
 
       - name: Archive channel
         if: always()
-        uses: replicatedhq/replicated-actions/archive-channel@v1.23.0
+        uses: replicatedhq/replicated-actions/archive-channel@v1.24.0
         continue-on-error: true
         with:
           app-slug: ${{ env.APP_SLUG }}
